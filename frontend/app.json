@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Bodha LMS",
+    "slug": "bodha-lms",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#4C1D95"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.bodha.lms"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#4C1D95"
+      },
+      "package": "com.bodha.lms"
+    },
+    "plugins": []
+  }
+}

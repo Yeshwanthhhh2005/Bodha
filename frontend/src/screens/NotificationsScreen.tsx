@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
   StyleSheet, ActivityIndicator, RefreshControl,
@@ -7,19 +7,26 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { notificationAPI } from '../services/api';
 import { getSocket } from '../services/socket';
 import { useNotification } from '../context/NotificationContext';
+import type { AppNotification } from '../types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { LiveSessionsStackParamList } from '../types';
 
-const TYPE_ICONS = {
+interface NotificationsScreenProps {
+  navigation?: NativeStackNavigationProp<LiveSessionsStackParamList, 'Notifications'>;
+}
+
+const TYPE_ICONS: Record<string, string> = {
   session_reminder: '⏰',
-  admin_broadcast: '📢',
-  daily_reminder: '🌅',
-  new_content: '📚',
-  achievement: '🏆',
-  points: '⭐',
-  assessment: '📝',
-  system: '🔔',
+  admin_broadcast:  '📢',
+  daily_reminder:   '🌅',
+  new_content:      '📚',
+  achievement:      '🏆',
+  points:           '⭐',
+  assessment:       '📝',
+  system:           '🔔',
 };
 
-const timeAgo = (dateStr) => {
+const timeAgo = (dateStr: string): string => {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return 'Just now';
@@ -29,18 +36,18 @@ const timeAgo = (dateStr) => {
   return `${Math.floor(hrs / 24)}d ago`;
 };
 
-const NotificationsScreen = ({ navigation }) => {
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ navigation }) => {
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const { setUnreadCount } = useNotification();
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<void> => {
     try {
       const res = await notificationAPI.getAll();
       setNotifications(res.data || []);
-    } catch (err) {
-      console.error('Notifications load error:', err?.message);
+    } catch (err: unknown) {
+      console.error('Notifications load error:', err instanceof Error ? err.message : err);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -52,18 +59,17 @@ const NotificationsScreen = ({ navigation }) => {
     setUnreadCount(0);
   }, [load, setUnreadCount]);
 
-  // Real-time: prepend new notification pushed from server
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
-    const handler = (notif) => {
+    const handler = (notif: AppNotification): void => {
       setNotifications((prev) => [notif, ...prev]);
     };
     socket.on('notification:new', handler);
     return () => socket.off('notification:new', handler);
   }, []);
 
-  const markRead = async (id) => {
+  const markRead = async (id: string): Promise<void> => {
     setNotifications((prev) =>
       prev.map((n) => (n._id === id ? { ...n, isRead: true } : n))
     );
@@ -72,7 +78,7 @@ const NotificationsScreen = ({ navigation }) => {
     } catch {}
   };
 
-  const markAllRead = async () => {
+  const markAllRead = async (): Promise<void> => {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     try {
       await notificationAPI.markAllRead();
@@ -81,7 +87,7 @@ const NotificationsScreen = ({ navigation }) => {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  const renderItem = ({ item }) => (
+  const renderItem = ({ item }: { item: AppNotification }) => (
     <TouchableOpacity
       style={[styles.item, !item.isRead && styles.itemUnread]}
       onPress={() => markRead(item._id)}
@@ -101,7 +107,7 @@ const NotificationsScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
-  const ListEmpty = () => (
+  const ListEmpty: React.FC = () => (
     <View style={styles.empty}>
       <Text style={styles.emptyIcon}>🔔</Text>
       <Text style={styles.emptyTitle}>No notifications yet</Text>
@@ -136,7 +142,7 @@ const NotificationsScreen = ({ navigation }) => {
           keyExtractor={(item) => item._id}
           renderItem={renderItem}
           ListEmptyComponent={ListEmpty}
-          contentContainerStyle={notifications.length === 0 && styles.emptyContainer}
+          contentContainerStyle={notifications.length === 0 ? styles.emptyContainer : undefined}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -152,36 +158,30 @@ const NotificationsScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F9FAFB' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#4C1D95', paddingHorizontal: 16, paddingVertical: 14,
-  },
-  backBtn: { padding: 4 },
-  backIcon: { fontSize: 22, color: '#fff' },
+  safe:        { flex: 1, backgroundColor: '#F9FAFB' },
+  header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#4C1D95', paddingHorizontal: 16, paddingVertical: 14 },
+  backBtn:     { padding: 4 },
+  backIcon:    { fontSize: 22, color: '#fff' },
   headerTitle: { fontSize: 17, fontWeight: '700', color: '#fff' },
-  markAllBtn: { paddingHorizontal: 4 },
+  markAllBtn:  { paddingHorizontal: 4 },
   markAllText: { fontSize: 13, color: '#C4B5FD', fontWeight: '600' },
-  loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  item: {
-    flexDirection: 'row', alignItems: 'flex-start',
-    paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#fff',
-  },
-  itemUnread: { backgroundColor: '#FAF5FF' },
-  iconBox: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center', marginRight: 12, flexShrink: 0, position: 'relative' },
-  iconText: { fontSize: 18 },
-  unreadDot: { position: 'absolute', top: 0, right: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: '#7C3AED', borderWidth: 1.5, borderColor: '#fff' },
-  content: { flex: 1 },
-  title: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 3 },
+  loader:      { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  item:        { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#fff' },
+  itemUnread:  { backgroundColor: '#FAF5FF' },
+  iconBox:     { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center', marginRight: 12, flexShrink: 0, position: 'relative' },
+  iconText:    { fontSize: 18 },
+  unreadDot:   { position: 'absolute', top: 0, right: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: '#7C3AED', borderWidth: 1.5, borderColor: '#fff' },
+  content:     { flex: 1 },
+  title:       { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 3 },
   titleUnread: { color: '#111827', fontWeight: '700' },
-  message: { fontSize: 13, color: '#6B7280', lineHeight: 18 },
-  time: { fontSize: 11, color: '#9CA3AF', marginTop: 5 },
-  separator: { height: 1, backgroundColor: '#F3F4F6' },
-  empty: { alignItems: 'center', paddingTop: 80 },
+  message:     { fontSize: 13, color: '#6B7280', lineHeight: 18 },
+  time:        { fontSize: 11, color: '#9CA3AF', marginTop: 5 },
+  separator:   { height: 1, backgroundColor: '#F3F4F6' },
+  empty:        { alignItems: 'center', paddingTop: 80 },
   emptyContainer: { flex: 1 },
-  emptyIcon: { fontSize: 52, marginBottom: 14 },
-  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#111827', marginBottom: 6 },
-  emptySub: { fontSize: 13, color: '#9CA3AF', textAlign: 'center', paddingHorizontal: 40 },
+  emptyIcon:    { fontSize: 52, marginBottom: 14 },
+  emptyTitle:   { fontSize: 17, fontWeight: '700', color: '#111827', marginBottom: 6 },
+  emptySub:     { fontSize: 13, color: '#9CA3AF', textAlign: 'center', paddingHorizontal: 40 },
 });
 
 export default NotificationsScreen;

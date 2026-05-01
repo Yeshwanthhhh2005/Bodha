@@ -1,25 +1,21 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
-  StyleSheet,
-  Modal,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Animated,
+  View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet,
+  Modal, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { chatAPI, escalationAPI } from '../services/api';
 import { getSocket } from '../services/socket';
 import { SESSION_STATES } from '../utils/constants';
+import type { Session, ChatMessage } from '../types';
 
-const MessageBubble = ({ msg }) => {
+interface MessageBubbleProps {
+  msg: ChatMessage;
+}
+
+const MessageBubble: React.FC<MessageBubbleProps> = ({ msg }) => {
   const isStudent = msg.sender === 'student';
   const isTrainer = msg.sender === 'trainer';
-  const isAI = msg.sender === 'ai';
+  const isAI      = msg.sender === 'ai';
 
   return (
     <View style={[styles.bubbleWrapper, isStudent && styles.bubbleRight]}>
@@ -48,14 +44,20 @@ const MessageBubble = ({ msg }) => {
   );
 };
 
-const ChatModal = ({ visible, onClose, session }) => {
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [historyLoading, setHistoryLoading] = useState(true);
-  const [isEscalating, setIsEscalating] = useState(false);
-  const [waitingForTrainer, setWaitingForTrainer] = useState(false);
-  const flatListRef = useRef(null);
+interface ChatModalProps {
+  visible: boolean;
+  onClose: () => void;
+  session: Session | null | undefined;
+}
+
+const ChatModal: React.FC<ChatModalProps> = ({ visible, onClose, session }) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [historyLoading, setHistoryLoading] = useState<boolean>(true);
+  const [isEscalating, setIsEscalating] = useState<boolean>(false);
+  const [waitingForTrainer, setWaitingForTrainer] = useState<boolean>(false);
+  const flatListRef = useRef<FlatList<ChatMessage>>(null);
   const sessionId = session?._id;
   const sessionState = session?.state;
 
@@ -74,7 +76,7 @@ const ChatModal = ({ visible, onClose, session }) => {
   useEffect(() => {
     if (!visible || !sessionId) return;
 
-    const loadHistory = async () => {
+    const loadHistory = async (): Promise<void> => {
       setHistoryLoading(true);
       try {
         const res = await chatAPI.getHistory(sessionId);
@@ -88,7 +90,7 @@ const ChatModal = ({ visible, onClose, session }) => {
     const socket = getSocket();
     if (!socket) return;
 
-    const onMessage = (msg) => {
+    const onMessage = (msg: ChatMessage): void => {
       setMessages((prev) => {
         if (prev.find((m) => m._id === msg._id)) return prev;
         return [...prev, msg];
@@ -99,7 +101,7 @@ const ChatModal = ({ visible, onClose, session }) => {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     };
 
-    const onTrainerResponse = ({ message }) => {
+    const onTrainerResponse = ({ message }: { message: ChatMessage }): void => {
       setWaitingForTrainer(false);
       setMessages((prev) => {
         if (prev.find((m) => m._id === message._id)) return prev;
@@ -117,16 +119,16 @@ const ChatModal = ({ visible, onClose, session }) => {
     };
   }, [visible, sessionId]);
 
-  const sendMessage = async () => {
+  const sendMessage = async (): Promise<void> => {
     const trimmed = input.trim();
-    if (!trimmed || loading) return;
+    if (!trimmed || loading || !sessionId) return;
 
     setInput('');
     setLoading(true);
     try {
       await chatAPI.sendMessage(sessionId, trimmed);
-    } catch (err) {
-      const errMsg = err?.message || 'Failed to send message';
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Failed to send message';
       setMessages((prev) => [
         ...prev,
         { _id: Date.now().toString(), sender: 'ai', content: errMsg, createdAt: new Date() },
@@ -135,15 +137,15 @@ const ChatModal = ({ visible, onClose, session }) => {
     setLoading(false);
   };
 
-  const escalateToTrainer = async () => {
+  const escalateToTrainer = async (): Promise<void> => {
     const lastStudentMsg = [...messages].reverse().find((m) => m.sender === 'student');
-    if (!lastStudentMsg) return;
+    if (!lastStudentMsg || !sessionId) return;
 
     setIsEscalating(true);
     try {
       await escalationAPI.escalate(sessionId, lastStudentMsg.content, lastStudentMsg._id);
-    } catch (err) {
-      const errMsg = err?.message || 'Could not escalate. Try again.';
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Could not escalate. Try again.';
       setMessages((prev) => [
         ...prev,
         { _id: Date.now().toString(), sender: 'ai', content: errMsg, createdAt: new Date() },
@@ -152,7 +154,7 @@ const ChatModal = ({ visible, onClose, session }) => {
     setIsEscalating(false);
   };
 
-  const chatModeLabel = () => {
+  const chatModeLabel = (): string => {
     if (isDoubtSession) return '💬 Doubt Session — Trainer Direct Chat';
     if (canUseAI) return '🤖 AI Assistant';
     return '💬 Chat';
@@ -178,14 +180,12 @@ const ChatModal = ({ visible, onClose, session }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Doubt session banner */}
           {isDoubtSession && (
             <View style={styles.doubtBanner}>
               <Text style={styles.doubtBannerText}>🎓 Live Doubt Session Ongoing — Trainer is available!</Text>
             </View>
           )}
 
-          {/* Messages */}
           {historyLoading ? (
             <View style={styles.loaderContainer}>
               <ActivityIndicator size="large" color="#7C3AED" />
@@ -214,7 +214,6 @@ const ChatModal = ({ visible, onClose, session }) => {
             />
           )}
 
-          {/* Waiting indicator */}
           {waitingForTrainer && (
             <View style={styles.waitingRow}>
               <ActivityIndicator size="small" color="#7C3AED" />
@@ -222,7 +221,6 @@ const ChatModal = ({ visible, onClose, session }) => {
             </View>
           )}
 
-          {/* Escalate button */}
           {canEscalate && !isDoubtSession && !waitingForTrainer && messages.some((m) => m.sender === 'student') && (
             <TouchableOpacity
               style={[styles.escalateBtn, isEscalating && styles.escalateBtnDisabled]}
@@ -253,7 +251,7 @@ const ChatModal = ({ visible, onClose, session }) => {
               onChangeText={setInput}
               multiline
               maxLength={500}
-              editable={canUseAI || isDoubtSession}
+              editable={!!(canUseAI || isDoubtSession)}
               returnKeyType="send"
               onSubmitEditing={sendMessage}
             />
@@ -276,207 +274,44 @@ const ChatModal = ({ visible, onClose, session }) => {
 };
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '80%',
-    minHeight: '60%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  headerLeft: { flex: 1 },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  modePill: {
-    marginTop: 4,
-    alignSelf: 'flex-start',
-    backgroundColor: '#EDE9FE',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  modeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#7C3AED',
-  },
-  closeBtn: {
-    padding: 4,
-    marginLeft: 12,
-  },
-  closeIcon: {
-    fontSize: 16,
-    color: '#6B7280',
-    fontWeight: '600',
-  },
-  doubtBanner: {
-    backgroundColor: '#EDE9FE',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  doubtBannerText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#5B21B6',
-  },
-  loaderContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-  },
-  messageList: {
-    padding: 16,
-    flexGrow: 1,
-  },
-  emptyChat: {
-    alignItems: 'center',
-    paddingTop: 40,
-  },
-  emptyChatText: {
-    color: '#9CA3AF',
-    fontSize: 13,
-    textAlign: 'center',
-    paddingHorizontal: 24,
-  },
-  bubbleWrapper: {
-    marginBottom: 12,
-    maxWidth: '80%',
-    alignSelf: 'flex-start',
-  },
-  bubbleRight: {
-    alignSelf: 'flex-end',
-  },
-  senderTag: {
-    marginBottom: 3,
-  },
-  senderLabel: {
-    fontSize: 10,
-    color: '#9CA3AF',
-    fontWeight: '600',
-  },
-  bubble: {
-    borderRadius: 14,
-    padding: 10,
-    backgroundColor: '#F3F4F6',
-  },
-  bubbleStudent: {
-    backgroundColor: '#7C3AED',
-    borderBottomRightRadius: 4,
-  },
-  bubbleAI: {
-    backgroundColor: '#F0FDF4',
-    borderBottomLeftRadius: 4,
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-  },
-  bubbleTrainer: {
-    backgroundColor: '#EFF6FF',
-    borderBottomLeftRadius: 4,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  bubbleHighlighted: {
-    borderWidth: 2,
-    borderColor: '#3B82F6',
-  },
-  bubbleText: {
-    fontSize: 14,
-    color: '#111827',
-    lineHeight: 20,
-  },
-  bubbleTextStudent: {
-    color: '#fff',
-  },
-  bubbleTime: {
-    fontSize: 10,
-    color: '#9CA3AF',
-    marginTop: 4,
-    alignSelf: 'flex-end',
-  },
-  bubbleTimeStudent: {
-    color: 'rgba(255,255,255,0.7)',
-  },
-  waitingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#FEF3C7',
-  },
-  waitingText: {
-    fontSize: 12,
-    color: '#92400E',
-    fontWeight: '500',
-  },
-  escalateBtn: {
-    marginHorizontal: 16,
-    marginBottom: 8,
-    borderWidth: 1.5,
-    borderColor: '#7C3AED',
-    borderRadius: 10,
-    paddingVertical: 9,
-    alignItems: 'center',
-  },
+  overlay:       { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet:         { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '80%', minHeight: '60%' },
+  header:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  headerLeft:    { flex: 1 },
+  headerTitle:   { fontSize: 17, fontWeight: '700', color: '#111827' },
+  modePill:      { marginTop: 4, alignSelf: 'flex-start', backgroundColor: '#EDE9FE', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  modeText:      { fontSize: 11, fontWeight: '600', color: '#7C3AED' },
+  closeBtn:      { padding: 4, marginLeft: 12 },
+  closeIcon:     { fontSize: 16, color: '#6B7280', fontWeight: '600' },
+  doubtBanner:   { backgroundColor: '#EDE9FE', paddingHorizontal: 16, paddingVertical: 8 },
+  doubtBannerText: { fontSize: 12, fontWeight: '600', color: '#5B21B6' },
+  loaderContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+  messageList:   { padding: 16, flexGrow: 1 },
+  emptyChat:     { alignItems: 'center', paddingTop: 40 },
+  emptyChatText: { color: '#9CA3AF', fontSize: 13, textAlign: 'center', paddingHorizontal: 24 },
+  bubbleWrapper: { marginBottom: 12, maxWidth: '80%', alignSelf: 'flex-start' },
+  bubbleRight:   { alignSelf: 'flex-end' },
+  senderTag:     { marginBottom: 3 },
+  senderLabel:   { fontSize: 10, color: '#9CA3AF', fontWeight: '600' },
+  bubble:        { borderRadius: 14, padding: 10, backgroundColor: '#F3F4F6' },
+  bubbleStudent: { backgroundColor: '#7C3AED', borderBottomRightRadius: 4 },
+  bubbleAI:      { backgroundColor: '#F0FDF4', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#BBF7D0' },
+  bubbleTrainer: { backgroundColor: '#EFF6FF', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#BFDBFE' },
+  bubbleHighlighted: { borderWidth: 2, borderColor: '#3B82F6' },
+  bubbleText:    { fontSize: 14, color: '#111827', lineHeight: 20 },
+  bubbleTextStudent: { color: '#fff' },
+  bubbleTime:    { fontSize: 10, color: '#9CA3AF', marginTop: 4, alignSelf: 'flex-end' },
+  bubbleTimeStudent: { color: 'rgba(255,255,255,0.7)' },
+  waitingRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#FEF3C7' },
+  waitingText:   { fontSize: 12, color: '#92400E', fontWeight: '500' },
+  escalateBtn:   { marginHorizontal: 16, marginBottom: 8, borderWidth: 1.5, borderColor: '#7C3AED', borderRadius: 10, paddingVertical: 9, alignItems: 'center' },
   escalateBtnDisabled: { opacity: 0.6 },
-  escalateBtnText: {
-    color: '#7C3AED',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    gap: 10,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#111827',
-    maxHeight: 100,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  sendBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#7C3AED',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendBtnDisabled: {
-    backgroundColor: '#D1D5DB',
-  },
-  sendBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  escalateBtnText: { color: '#7C3AED', fontSize: 13, fontWeight: '700' },
+  inputRow:      { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#F3F4F6', gap: 10 },
+  input:         { flex: 1, backgroundColor: '#F9FAFB', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: '#111827', maxHeight: 100, borderWidth: 1, borderColor: '#E5E7EB' },
+  sendBtn:       { width: 42, height: 42, borderRadius: 21, backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center' },
+  sendBtnDisabled: { backgroundColor: '#D1D5DB' },
+  sendBtnText:   { color: '#fff', fontSize: 16, fontWeight: '700' },
 });
 
 export default ChatModal;

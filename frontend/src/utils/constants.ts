@@ -6,9 +6,9 @@ export const SESSION_STATES = {
   LIVE: 'LIVE',
   COMPLETED: 'COMPLETED',
   DOUBT_SESSION: 'DOUBT_SESSION',
-};
+} as const;
 
-export const DAY_COLORS = {
+export const DAY_COLORS: Record<string, string> = {
   Mon: '#7C3AED',
   Tue: '#2563EB',
   Wed: '#D97706',
@@ -22,4 +22,4 @@ export const CHAT_TYPES = {
   AI: 'AI_CHAT',
   ESCALATION: 'TRAINER_ESCALATION',
   DOUBT: 'DOUBT_SESSION_CHAT',
-};
+} as const;

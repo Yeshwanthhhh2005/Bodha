@@ -1,14 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  StatusBar,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  StatusBar, ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { sessionAPI, scheduleAPI, pollAPI, notificationAPI } from '../services/api';
@@ -20,22 +13,30 @@ import SessionInfo from '../components/SessionInfo';
 import SessionCard from '../components/SessionCard';
 import ChatModal from '../components/ChatModal';
 import PollModal from '../components/PollModal';
+import type { Session, Poll } from '../types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { LiveSessionsStackParamList } from '../types';
 
-const LiveSessionScreen = ({ route, navigation }) => {
+interface LiveSessionScreenProps {
+  route?: { params?: { sessionId?: string } };
+  navigation?: NativeStackNavigationProp<LiveSessionsStackParamList>;
+}
+
+const LiveSessionScreen: React.FC<LiveSessionScreenProps> = ({ route, navigation }) => {
   const { sessionId } = route?.params ?? {};
   const { unreadCount, setUnreadCount } = useNotification();
 
-  const [session, setSession] = useState(null);
-  const [schedule, setSchedule] = useState([]);
-  const [remindedSessions, setRemindedSessions] = useState(new Set());
-  const [chatVisible, setChatVisible] = useState(false);
-  const [activePoll, setActivePoll] = useState(null);
-  const [pollVisible, setPollVisible] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [schedule, setSchedule] = useState<Session[]>([]);
+  const [remindedSessions, setRemindedSessions] = useState<Set<string>>(new Set());
+  const [chatVisible, setChatVisible] = useState<boolean>(false);
+  const [activePoll, setActivePoll] = useState<Poll | null>(null);
+  const [pollVisible, setPollVisible] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
   // ── Data Loading ─────────────────────────────────────────────────────────
-  const loadData = useCallback(async (skipPollReset = false) => {
+  const loadData = useCallback(async (skipPollReset = false): Promise<void> => {
     try {
       const [sessionRes, scheduleRes, remindersRes, pollRes, unreadRes] = await Promise.all([
         sessionId ? sessionAPI.getSession(sessionId) : Promise.resolve({ data: null }),
@@ -45,28 +46,26 @@ const LiveSessionScreen = ({ route, navigation }) => {
         notificationAPI.getUnreadCount().catch(() => null),
       ]);
 
-      if (sessionRes.data) setSession(sessionRes.data);
-      setSchedule(scheduleRes.data || []);
-      setRemindedSessions(new Set(remindersRes.data || []));
+      if (sessionRes.data) setSession(sessionRes.data as Session);
+      setSchedule((scheduleRes.data as Session[]) || []);
+      setRemindedSessions(new Set((remindersRes.data as string[]) || []));
       if (unreadRes?.data?.count !== undefined) setUnreadCount(unreadRes.data.count);
 
       if (pollRes?.data) {
-        setActivePoll(pollRes.data);
+        setActivePoll(pollRes.data as Poll);
         if (!skipPollReset) setPollVisible(true);
       } else if (!skipPollReset) {
         setActivePoll((prev) => (prev && !prev.closed ? null : prev));
       }
-    } catch (err) {
-      console.error('Load data error:', err?.message);
+    } catch (err: unknown) {
+      console.error('Load data error:', err instanceof Error ? err.message : err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [sessionId]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   // Re-check for a poll every 5 s while inside a session
   useEffect(() => {
@@ -77,50 +76,45 @@ const LiveSessionScreen = ({ route, navigation }) => {
 
   // ── Socket Connection ─────────────────────────────────────────────────────
   useEffect(() => {
-    let socket;
-    const setup = async () => {
-      socket = await connectSocket();
+    const setup = async (): Promise<void> => {
+      const socket = await connectSocket();
 
-      // Always listen — works even on the main list view (no sessionId)
-      socket.on('sessions:updated', () => {
-        loadData();
-      });
+      socket.on('sessions:updated', () => { loadData(); });
 
-      socket.on('reminder:session', ({ message }) => {
+      socket.on('reminder:session', ({ message }: { message: string }) => {
         Alert.alert('⏰ Reminder', message || 'Session is starting soon!');
       });
 
-      socket.on('admin:notification', ({ message, type }) => {
+      socket.on('admin:notification', ({ message, type }: { message: string; type: string }) => {
         const title =
           type === 'warning' ? '⚠️ Notice' :
           type === 'success' ? '✅ Update' : '📢 Announcement';
         Alert.alert(title, message);
       });
 
-
-      // Session-specific listeners — only needed when viewing a session
       if (sessionId) {
         joinSession(sessionId);
 
-        socket.on('session:joined', ({ state, watcherCount }) => {
-          setSession((prev) => prev ? { ...prev, state, watcherCount } : prev);
+        socket.on('session:joined', ({ state, watcherCount }: { state: string; watcherCount: number }) => {
+          setSession((prev) => prev ? { ...prev, state: state as Session['state'], watcherCount } : prev);
         });
 
-        socket.on('session:state_change', ({ state, session: updatedSession }) => {
-          setSession((prev) => ({ ...prev, state, ...updatedSession }));
+        socket.on('session:state_change', ({ state, session: updatedSession }: { state: string; session: Partial<Session> }) => {
+          setSession((prev) => prev ? { ...prev, state: state as Session['state'], ...updatedSession } : prev);
         });
 
-        socket.on('session:watcher_count', ({ count }) => {
+        socket.on('session:watcher_count', ({ count }: { count: number }) => {
           setSession((prev) => prev ? { ...prev, watcherCount: count } : prev);
         });
 
-        socket.on('poll:released', (poll) => {
+        socket.on('poll:released', (poll: Poll) => {
           setActivePoll(poll);
           setPollVisible(true);
         });
 
-        socket.on('poll:closed', ({ counts, total, options, correctOption }) => {
-          // Keep data so student can still view results, but mark as closed
+        socket.on('poll:closed', ({ counts, total, options, correctOption }: {
+          counts: number[]; total: number; options: string[]; correctOption: number;
+        }) => {
           setActivePoll((prev) => prev ? { ...prev, counts, total, options, correctOption, closed: true } : prev);
         });
       }
@@ -143,7 +137,7 @@ const LiveSessionScreen = ({ route, navigation }) => {
   }, [sessionId]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-  const toggleReminder = async (sid) => {
+  const toggleReminder = async (sid: string): Promise<void> => {
     try {
       if (remindedSessions.has(sid)) {
         await sessionAPI.removeReminder(sid);
@@ -156,8 +150,8 @@ const LiveSessionScreen = ({ route, navigation }) => {
         await sessionAPI.setReminder(sid);
         setRemindedSessions((prev) => new Set([...prev, sid]));
       }
-    } catch (err) {
-      console.error('Reminder toggle error:', err?.message);
+    } catch (err: unknown) {
+      console.error('Reminder toggle error:', err instanceof Error ? err.message : err);
     }
   };
 
@@ -166,21 +160,20 @@ const LiveSessionScreen = ({ route, navigation }) => {
   );
   const nextUpcoming = schedule
     .filter((s) => s.state === SESSION_STATES.UPCOMING)
-    .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt))[0] || null;
+    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0] || null;
 
-  // In list view, exclude the session already shown in the hero to avoid showing it twice
   const heroFeaturedId = !sessionId ? (liveSession?._id || nextUpcoming?._id || null) : null;
   const listItems = heroFeaturedId
     ? schedule.filter((s) => String(s._id) !== String(heroFeaturedId))
     : schedule;
 
-  const onRefresh = () => {
+  const onRefresh = (): void => {
     setRefreshing(true);
     loadData();
   };
 
-  // ── List-view hero (shown when no specific session is open) ──────────────
-  const renderHero = () => {
+  // ── List-view hero ───────────────────────────────────────────────────────
+  const renderHero = (): React.ReactElement => {
     if (liveSession) {
       const isDoubt = liveSession.state === SESSION_STATES.DOUBT_SESSION;
       return (
@@ -190,7 +183,6 @@ const LiveSessionScreen = ({ route, navigation }) => {
           onPress={() => navigation?.push('LiveSession', { sessionId: liveSession._id })}
         >
           <View style={styles.heroBg}>
-            {/* Top row */}
             <View style={styles.heroTopRow}>
               <View style={[styles.heroBadge, isDoubt && styles.heroBadgeDoubt]}>
                 <View style={styles.heroBadgeDot} />
@@ -202,14 +194,10 @@ const LiveSessionScreen = ({ route, navigation }) => {
                 </View>
               )}
             </View>
-
-            {/* Session info */}
             <Text style={styles.heroTitle} numberOfLines={2}>{liveSession.title}</Text>
             <Text style={styles.heroInstructor} numberOfLines={1}>
               {liveSession.instructor?.name || 'Instructor'}
             </Text>
-
-            {/* CTA */}
             <View style={[styles.heroCta, isDoubt && { backgroundColor: '#7C3AED' }]}>
               <Text style={styles.heroCtaText}>
                 {isDoubt ? '🎓 Join Doubt Session' : '▶  Watch Live'}
@@ -249,7 +237,6 @@ const LiveSessionScreen = ({ route, navigation }) => {
       );
     }
 
-    // No sessions at all
     return (
       <View style={[styles.heroCard, styles.heroEmpty]}>
         <Text style={styles.heroEmptyIcon}>📭</Text>
@@ -259,8 +246,7 @@ const LiveSessionScreen = ({ route, navigation }) => {
     );
   };
 
-  // ── Current session state banner ──────────────────────────────────────────
-  const renderStateBanner = () => {
+  const renderStateBanner = (): React.ReactElement | null => {
     if (!session) return null;
     if (session.state === SESSION_STATES.DOUBT_SESSION) {
       return (
@@ -282,7 +268,6 @@ const LiveSessionScreen = ({ route, navigation }) => {
     return null;
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -297,7 +282,7 @@ const LiveSessionScreen = ({ route, navigation }) => {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor="#4C1D95" />
 
-      {/* ─── Header ─────────────────────────────────────────────────── */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backBtn}>
           <Text style={styles.backIcon}>←</Text>
@@ -342,17 +327,10 @@ const LiveSessionScreen = ({ route, navigation }) => {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7C3AED" />}
       >
-        {/* ─── Video Player / Hero ─────────────────────────────────── */}
-        {sessionId ? (
-          <VideoSection session={session} />
-        ) : (
-          renderHero()
-        )}
+        {sessionId ? <VideoSection session={session} /> : renderHero()}
 
-        {/* ─── State Banner ────────────────────────────────────────── */}
         {renderStateBanner()}
 
-        {/* ─── Live Poll Banner ────────────────────────────────────── */}
         {activePoll && (
           <TouchableOpacity
             style={styles.pollBanner}
@@ -366,9 +344,7 @@ const LiveSessionScreen = ({ route, navigation }) => {
                   {activePoll.closed ? 'POLL ENDED' : 'LIVE POLL'}
                 </Text>
               </View>
-              <Text style={styles.pollQuestion} numberOfLines={1}>
-                {activePoll.question}
-              </Text>
+              <Text style={styles.pollQuestion} numberOfLines={1}>{activePoll.question}</Text>
             </View>
             <View style={[styles.pollAnswerBtn, activePoll.closed && { backgroundColor: '#374151' }]}>
               <Text style={styles.pollAnswerText}>
@@ -378,13 +354,11 @@ const LiveSessionScreen = ({ route, navigation }) => {
           </TouchableOpacity>
         )}
 
-        {/* ─── Session Info Card ───────────────────────────────────── */}
         <SessionInfo
           session={session ?? liveSession}
           onAskQuestion={() => setChatVisible(true)}
         />
 
-        {/* ─── Weekly Schedule ─────────────────────────────────────── */}
         <View style={styles.scheduleHeader}>
           <Text style={styles.scheduleTitle}>All Sessions</Text>
           <TouchableOpacity>
@@ -414,14 +388,12 @@ const LiveSessionScreen = ({ route, navigation }) => {
         <View style={styles.bottomPad} />
       </ScrollView>
 
-      {/* ─── Chat Modal ─────────────────────────────────────────────── */}
       <ChatModal
         visible={chatVisible}
         onClose={() => setChatVisible(false)}
         session={session ?? liveSession}
       />
 
-      {/* ─── Poll Modal ──────────────────────────────────────────────── */}
       <PollModal
         visible={pollVisible}
         poll={activePoll}
@@ -433,325 +405,72 @@ const LiveSessionScreen = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F9FAFB',
-    gap: 12,
-  },
-  loadingText: {
-    color: '#6B7280',
-    fontSize: 14,
-  },
+  safe:            { flex: 1, backgroundColor: '#F9FAFB' },
+  loadingContainer:{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9FAFB', gap: 12 },
+  loadingText:     { color: '#6B7280', fontSize: 14 },
 
-  // Header
-  header: {
-    backgroundColor: '#4C1D95',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 10,
-  },
-  backBtn: {
-    padding: 4,
-  },
-  backIcon: {
-    fontSize: 22,
-    color: '#fff',
-    fontWeight: '600',
-  },
-  headerCenter: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  headerIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: '#7C3AED',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerIconText: { fontSize: 18 },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  headerSubtitle: {
-    fontSize: 11,
-    color: '#C4B5FD',
-    marginTop: 1,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  notifBtn: {
-    position: 'relative',
-    padding: 4,
-  },
-  notifIcon: { fontSize: 20 },
-  notifBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: '#EF4444',
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#4C1D95',
-  },
-  notifBadgeText: {
-    color: '#fff',
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  avatarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  avatarBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#7C3AED',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#C4B5FD',
-  },
-  avatarText: { fontSize: 18 },
-  chevron: { fontSize: 16, color: '#C4B5FD', fontWeight: '700', marginTop: 2 },
+  header:          { backgroundColor: '#4C1D95', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
+  backBtn:         { padding: 4 },
+  backIcon:        { fontSize: 22, color: '#fff', fontWeight: '600' },
+  headerCenter:    { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerIconBox:   { width: 40, height: 40, borderRadius: 10, backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center' },
+  headerIconText:  { fontSize: 18 },
+  headerTitle:     { fontSize: 16, fontWeight: '700', color: '#fff' },
+  headerSubtitle:  { fontSize: 11, color: '#C4B5FD', marginTop: 1 },
+  headerRight:     { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  notifBtn:        { position: 'relative', padding: 4 },
+  notifIcon:       { fontSize: 20 },
+  notifBadge:      { position: 'absolute', top: 0, right: 0, backgroundColor: '#EF4444', borderRadius: 8, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#4C1D95' },
+  notifBadgeText:  { color: '#fff', fontSize: 9, fontWeight: '700' },
+  avatarRow:       { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  avatarBtn:       { width: 36, height: 36, borderRadius: 18, backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#C4B5FD' },
+  avatarText:      { fontSize: 18 },
+  chevron:         { fontSize: 16, color: '#C4B5FD', fontWeight: '700', marginTop: 2 },
 
-  scroll: { flex: 1 },
+  scroll:          { flex: 1 },
 
-  // State banners
-  bannerDoubt: {
-    backgroundColor: '#EDE9FE',
-    marginHorizontal: 16,
-    marginTop: 10,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderLeftWidth: 4,
-    borderLeftColor: '#7C3AED',
-  },
-  bannerUpcoming: {
-    backgroundColor: '#FEF3C7',
-    marginHorizontal: 16,
-    marginTop: 10,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderLeftWidth: 4,
-    borderLeftColor: '#D97706',
-  },
-  bannerText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#374151',
-  },
+  bannerDoubt:     { backgroundColor: '#EDE9FE', marginHorizontal: 16, marginTop: 10, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, borderLeftWidth: 4, borderLeftColor: '#7C3AED' },
+  bannerUpcoming:  { backgroundColor: '#FEF3C7', marginHorizontal: 16, marginTop: 10, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, borderLeftWidth: 4, borderLeftColor: '#D97706' },
+  bannerText:      { fontSize: 12, fontWeight: '600', color: '#374151' },
 
-  // Poll banner
-  pollBanner: {
-    marginHorizontal: 16,
-    marginTop: 10,
-    borderRadius: 12,
-    backgroundColor: '#1E1B4B',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    gap: 10,
-  },
-  pollBannerLeft: {
-    flex: 1,
-    gap: 4,
-  },
-  pollLivePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    alignSelf: 'flex-start',
-  },
-  pollDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#EF4444',
-  },
-  pollLiveText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#EF4444',
-    letterSpacing: 0.8,
-  },
-  pollQuestion: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  pollAnswerBtn: {
-    backgroundColor: '#7C3AED',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    flexShrink: 0,
-  },
-  pollAnswerText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#fff',
-  },
+  pollBanner:      { marginHorizontal: 16, marginTop: 10, borderRadius: 12, backgroundColor: '#1E1B4B', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 14, gap: 10 },
+  pollBannerLeft:  { flex: 1, gap: 4 },
+  pollLivePill:    { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start' },
+  pollDot:         { width: 6, height: 6, borderRadius: 3, backgroundColor: '#EF4444' },
+  pollLiveText:    { fontSize: 9, fontWeight: '800', color: '#EF4444', letterSpacing: 0.8 },
+  pollQuestion:    { fontSize: 13, fontWeight: '600', color: '#fff' },
+  pollAnswerBtn:   { backgroundColor: '#7C3AED', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7, flexShrink: 0 },
+  pollAnswerText:  { fontSize: 12, fontWeight: '700', color: '#fff' },
 
-  // Schedule section
-  scheduleHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: 20,
-    marginBottom: 12,
-    gap: 8,
-  },
-  scheduleTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
-    flex: 1,
-  },
-  calendarViewBtn: {
-    fontSize: 13,
-    color: '#7C3AED',
-    fontWeight: '600',
-    flexShrink: 0,
-  },
-  emptySchedule: {
-    alignItems: 'center',
-    paddingVertical: 52,
-    paddingHorizontal: 32,
-  },
-  emptyScheduleIcon: {
-    fontSize: 52,
-    marginBottom: 14,
-  },
-  emptyScheduleTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 8,
-  },
-  emptyScheduleText: {
-    fontSize: 13,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  bottomPad: { height: 32 },
+  scheduleHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 16, marginTop: 20, marginBottom: 12, gap: 8 },
+  scheduleTitle:   { fontSize: 16, fontWeight: '700', color: '#111827', flex: 1 },
+  calendarViewBtn: { fontSize: 13, color: '#7C3AED', fontWeight: '600', flexShrink: 0 },
+  emptySchedule:   { alignItems: 'center', paddingVertical: 52, paddingHorizontal: 32 },
+  emptyScheduleIcon:  { fontSize: 52, marginBottom: 14 },
+  emptyScheduleTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 8 },
+  emptyScheduleText:  { fontSize: 13, color: '#9CA3AF', textAlign: 'center', lineHeight: 20 },
+  bottomPad:       { height: 32 },
 
-  // ── Hero section (list view) ──────────────────────────────────────────────
-  heroCard: {
-    marginHorizontal: 16,
-    marginTop: 10,
-    borderRadius: 16,
-    overflow: 'hidden',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.22,
-    shadowRadius: 8,
-  },
-  heroBg: {
-    backgroundColor: '#0f0f1a',
-    padding: 20,
-    gap: 8,
-  },
-  heroBgUpcoming: {
-    backgroundColor: '#1a1040',
-  },
-  heroTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  heroBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EF4444',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    gap: 5,
-  },
-  heroBadgeDoubt: { backgroundColor: '#F97316' },
+  heroCard:        { marginHorizontal: 16, marginTop: 10, borderRadius: 16, overflow: 'hidden', elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.22, shadowRadius: 8 },
+  heroBg:          { backgroundColor: '#0f0f1a', padding: 20, gap: 8 },
+  heroBgUpcoming:  { backgroundColor: '#1a1040' },
+  heroTopRow:      { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  heroBadge:       { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EF4444', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, gap: 5 },
+  heroBadgeDoubt:  { backgroundColor: '#F97316' },
   heroBadgeUpcoming: { backgroundColor: '#4C1D95' },
-  heroBadgeDot: {
-    width: 6, height: 6, borderRadius: 3, backgroundColor: '#fff',
-  },
-  heroBadgeText: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
-  heroWatchers: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  heroWatchersText: { color: '#E2E8F0', fontSize: 11, fontWeight: '600' },
-  heroTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#fff',
-    lineHeight: 24,
-  },
-  heroInstructor: {
-    fontSize: 13,
-    color: '#94A3B8',
-  },
-  heroTime: {
-    fontSize: 12,
-    color: '#818CF8',
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  heroCta: {
-    marginTop: 12,
-    backgroundColor: '#EF4444',
-    borderRadius: 10,
-    paddingVertical: 11,
-    alignItems: 'center',
-  },
-  heroCtaText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  heroEmpty: {
-    backgroundColor: '#F9FAFB',
-    alignItems: 'center',
-    paddingVertical: 40,
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    borderStyle: 'dashed',
-  },
-  heroEmptyIcon: { fontSize: 40, marginBottom: 10 },
-  heroEmptyTitle: { fontSize: 16, fontWeight: '700', color: '#374151', marginBottom: 4 },
-  heroEmptySub: { fontSize: 13, color: '#9CA3AF', textAlign: 'center', paddingHorizontal: 24 },
+  heroBadgeDot:    { width: 6, height: 6, borderRadius: 3, backgroundColor: '#fff' },
+  heroBadgeText:   { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+  heroWatchers:    { backgroundColor: 'rgba(255,255,255,0.12)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  heroWatchersText:{ color: '#E2E8F0', fontSize: 11, fontWeight: '600' },
+  heroTitle:       { fontSize: 18, fontWeight: '800', color: '#fff', lineHeight: 24 },
+  heroInstructor:  { fontSize: 13, color: '#94A3B8' },
+  heroTime:        { fontSize: 12, color: '#818CF8', fontWeight: '600', marginTop: 2 },
+  heroCta:         { marginTop: 12, backgroundColor: '#EF4444', borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
+  heroCtaText:     { color: '#fff', fontSize: 14, fontWeight: '700', letterSpacing: 0.3 },
+  heroEmpty:       { backgroundColor: '#F9FAFB', alignItems: 'center', paddingVertical: 40, borderWidth: 1.5, borderColor: '#E5E7EB', borderStyle: 'dashed' },
+  heroEmptyIcon:   { fontSize: 40, marginBottom: 10 },
+  heroEmptyTitle:  { fontSize: 16, fontWeight: '700', color: '#374151', marginBottom: 4 },
+  heroEmptySub:    { fontSize: 13, color: '#9CA3AF', textAlign: 'center', paddingHorizontal: 24 },
 });
 
 export default LiveSessionScreen;

@@ -33,7 +33,7 @@ async function main() {
   console.log('   Email:    ', email);
   console.log('   Password: ', password);
   console.log('   _id:      ', user._id.toString());
-  console.log('\n📋 REAL_TOKEN (paste into frontend/src/services/api.js & socket.js):');
+  console.log('\n📋 REAL_TOKEN (paste into frontend/src/services/socket.ts):');
   console.log('\n' + token + '\n');
 
   await mongoose.disconnect();

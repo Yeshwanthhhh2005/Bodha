@@ -16,22 +16,25 @@ api.interceptors.response.use(
 );
 
 export const sessionAPI = {
-  getSession: (id) => api.get(`/sessions/${id}`),
-  setReminder: (id) => api.post(`/sessions/${id}/remind`),
-  removeReminder: (id) => api.delete(`/sessions/${id}/remind`),
+  getSession: (id: string) => api.get(`/sessions/${id}`),
+  setReminder: (id: string) => api.post(`/sessions/${id}/remind`),
+  removeReminder: (id: string) => api.delete(`/sessions/${id}/remind`),
   getMyReminders: () => api.get('/sessions/reminders/mine'),
 };
 
 export const chatAPI = {
-  sendMessage: (sessionId, content) => api.post(`/chat/${sessionId}/messages`, { content }),
-  getHistory: (sessionId, page = 1) => api.get(`/chat/${sessionId}/messages?page=${page}`),
+  sendMessage: (sessionId: string, content: string) =>
+    api.post(`/chat/${sessionId}/messages`, { content }),
+  getHistory: (sessionId: string, page = 1) =>
+    api.get(`/chat/${sessionId}/messages?page=${page}`),
 };
 
 export const escalationAPI = {
-  escalate: (sessionId, question, originalMessageId) =>
+  escalate: (sessionId: string, question: string, originalMessageId: string) =>
     api.post(`/escalations/${sessionId}/escalate`, { question, originalMessageId }),
-  getQueue: (sessionId) => api.get(`/escalations/${sessionId}/queue`),
-  respond: (escalationId, response) => api.patch(`/escalations/${escalationId}/respond`, { response }),
+  getQueue: (sessionId: string) => api.get(`/escalations/${sessionId}/queue`),
+  respond: (escalationId: string, response: string) =>
+    api.patch(`/escalations/${escalationId}/respond`, { response }),
 };
 
 export const scheduleAPI = {
@@ -39,20 +42,21 @@ export const scheduleAPI = {
 };
 
 export const pollAPI = {
-  getActive: (sessionId) => api.get(`/polls/sessions/${sessionId}/active`),
-  respond: (pollId, selectedOption) => api.post(`/polls/${pollId}/respond`, { selectedOption }),
+  getActive: (sessionId: string) => api.get(`/polls/sessions/${sessionId}/active`),
+  respond: (pollId: string, selectedOption: number) =>
+    api.post(`/polls/${pollId}/respond`, { selectedOption }),
 };
 
 export const notificationAPI = {
   getAll: (page = 1) => api.get(`/notifications?page=${page}`),
   getUnreadCount: () => api.get('/notifications/unread-count'),
-  markRead: (id) => api.patch(`/notifications/${id}/read`),
+  markRead: (id: string) => api.patch(`/notifications/${id}/read`),
   markAllRead: () => api.patch('/notifications/read-all'),
 };
 
 // Returns a short-lived player token — the actual YouTube URL never touches the client
 export const playerAPI = {
-  getToken: (sessionId) => api.get(`/player/${sessionId}/token`),
+  getToken: (sessionId: string) => api.get(`/player/${sessionId}/token`),
 };
 
 export default api;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -13,12 +14,20 @@ import LiveSessionScreen from './src/screens/LiveSessionScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import { NotificationProvider, useNotification } from './src/context/NotificationContext';
 import { connectSocket } from './src/services/socket';
+import type { RootStackParamList, LiveSessionsStackParamList } from './src/types';
 
-const Stack = createNativeStackNavigator();
+const RootStack = createNativeStackNavigator<RootStackParamList>();
+const LiveStack = createNativeStackNavigator<LiveSessionsStackParamList>();
 const Tab = createBottomTabNavigator();
 
 // ─── Tab Icons ────────────────────────────────────────────────────────────────
-const TabIcon = ({ icon, label, focused }) => (
+interface TabIconProps {
+  icon: string;
+  label: string;
+  focused: boolean;
+}
+
+const TabIcon: React.FC<TabIconProps> = ({ icon, label, focused }) => (
   <View style={tabS.item}>
     <View style={[tabS.iconWrap, focused && tabS.iconWrapActive]}>
       <Text style={[tabS.icon, focused && tabS.iconActive]}>{icon}</Text>
@@ -28,20 +37,22 @@ const TabIcon = ({ icon, label, focused }) => (
 );
 
 const tabS = StyleSheet.create({
-  item: { alignItems: 'center', justifyContent: 'center', paddingTop: 6 },
-  iconWrap: {
-    width: 44, height: 28, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  iconWrapActive: { backgroundColor: '#7C3AED' },
-  icon: { fontSize: 20 },
-  iconActive: {},
-  label: { fontSize: 10, color: '#9CA3AF', marginTop: 2, fontWeight: '500' },
-  labelActive: { color: '#7C3AED', fontWeight: '700' },
+  item:          { alignItems: 'center', justifyContent: 'center', paddingTop: 6 },
+  iconWrap:      { width: 44, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  iconWrapActive:{ backgroundColor: '#7C3AED' },
+  icon:          { fontSize: 20 },
+  iconActive:    {},
+  label:         { fontSize: 10, color: '#9CA3AF', marginTop: 2, fontWeight: '500' },
+  labelActive:   { color: '#7C3AED', fontWeight: '700' },
 });
 
 // ─── Placeholder Screens ──────────────────────────────────────────────────────
-const PlaceholderScreen = ({ title, icon }) => (
+interface PlaceholderScreenProps {
+  title: string;
+  icon: string;
+}
+
+const PlaceholderScreen: React.FC<PlaceholderScreenProps> = ({ title, icon }) => (
   <SafeAreaView style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9FAFB' }}>
     <Text style={{ fontSize: 48, marginBottom: 12 }}>{icon}</Text>
     <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>{title}</Text>
@@ -50,18 +61,18 @@ const PlaceholderScreen = ({ title, icon }) => (
 );
 
 // ─── Live Sessions Stack ──────────────────────────────────────────────────────
-const LiveSessionsStack = () => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
-    <Stack.Screen name="LiveSessionList">
-      {(props) => <LiveSessionScreen {...props} route={{ ...props.route, params: {} }} />}
-    </Stack.Screen>
-    <Stack.Screen name="LiveSession" component={LiveSessionScreen} />
-    <Stack.Screen name="Notifications" component={NotificationsScreen} />
-  </Stack.Navigator>
+const LiveSessionsStack: React.FC = () => (
+  <LiveStack.Navigator screenOptions={{ headerShown: false }}>
+    <LiveStack.Screen name="LiveSessionList">
+      {(props) => <LiveSessionScreen navigation={props.navigation} />}
+    </LiveStack.Screen>
+    <LiveStack.Screen name="LiveSession" component={LiveSessionScreen as React.ComponentType<object>} />
+    <LiveStack.Screen name="Notifications" component={NotificationsScreen as React.ComponentType<object>} />
+  </LiveStack.Navigator>
 );
 
 // ─── Tab Navigator ────────────────────────────────────────────────────────────
-const TabNavigator = () => (
+const TabNavigator: React.FC = () => (
   <Tab.Navigator
     screenOptions={{
       headerShown: false,
@@ -83,14 +94,14 @@ const TabNavigator = () => (
   >
     <Tab.Screen
       name="Home"
-      options={{ tabBarIcon: ({ focused }) => <TabIcon icon="🏠" label="Home" focused={focused} /> }}
+      options={{ tabBarIcon: ({ focused }: { focused: boolean }) => <TabIcon icon="🏠" label="Home" focused={focused} /> }}
     >
       {() => <PlaceholderScreen title="Home" icon="🏠" />}
     </Tab.Screen>
 
     <Tab.Screen
       name="MyLearning"
-      options={{ tabBarIcon: ({ focused }) => <TabIcon icon="📖" label="My Learning" focused={focused} /> }}
+      options={{ tabBarIcon: ({ focused }: { focused: boolean }) => <TabIcon icon="📖" label="My Learning" focused={focused} /> }}
     >
       {() => <PlaceholderScreen title="My Learning" icon="📖" />}
     </Tab.Screen>
@@ -98,12 +109,12 @@ const TabNavigator = () => (
     <Tab.Screen
       name="LiveSessions"
       component={LiveSessionsStack}
-      options={{ tabBarIcon: ({ focused }) => <TabIcon icon="📹" label="Live Sessions" focused={focused} /> }}
+      options={{ tabBarIcon: ({ focused }: { focused: boolean }) => <TabIcon icon="📹" label="Live Sessions" focused={focused} /> }}
     />
 
     <Tab.Screen
       name="Achievements"
-      options={{ tabBarIcon: ({ focused }) => <TabIcon icon="🏆" label="Achievements" focused={focused} /> }}
+      options={{ tabBarIcon: ({ focused }: { focused: boolean }) => <TabIcon icon="🏆" label="Achievements" focused={focused} /> }}
     >
       {() => <PlaceholderScreen title="Achievements" icon="🏆" />}
     </Tab.Screen>
@@ -111,15 +122,19 @@ const TabNavigator = () => (
 );
 
 // ─── Login Screen ─────────────────────────────────────────────────────────────
-const LoginScreen = ({ navigation }) => {
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+interface LoginScreenProps {
+  navigation: NativeStackNavigationProp<RootStackParamList, 'Login'>;
+}
 
-  const submit = async () => {
+const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [name, setName] = useState<string>('');
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
+
+  const submit = async (): Promise<void> => {
     if (!email.trim() || !password.trim()) {
       setError('Email and password are required.');
       return;
@@ -132,9 +147,10 @@ const LoginScreen = ({ navigation }) => {
     setError('');
     try {
       const url = `${API_BASE_URL}/auth/${mode}`;
-      const body = mode === 'register'
-        ? { name: name.trim(), email: email.trim(), password }
-        : { email: email.trim(), password };
+      const body =
+        mode === 'register'
+          ? { name: name.trim(), email: email.trim(), password }
+          : { email: email.trim(), password };
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -144,8 +160,8 @@ const LoginScreen = ({ navigation }) => {
       if (!res.ok) throw new Error(json?.message || 'Request failed');
       await AsyncStorage.setItem('token', json.data.token);
       navigation.replace('Main');
-    } catch (err) {
-      setError(err?.message || 'Something went wrong. Check your connection.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Check your connection.');
     } finally {
       setLoading(false);
     }
@@ -178,7 +194,10 @@ const LoginScreen = ({ navigation }) => {
             : <Text style={ls.btnText}>{mode === 'login' ? 'Sign In' : 'Create Account'}</Text>}
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }} style={ls.switchRow}>
+        <TouchableOpacity
+          onPress={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}
+          style={ls.switchRow}
+        >
           <Text style={ls.switchText}>
             {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
             <Text style={ls.switchLink}>{mode === 'login' ? 'Register' : 'Sign In'}</Text>
@@ -190,47 +209,36 @@ const LoginScreen = ({ navigation }) => {
 };
 
 const ls = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#4C1D95', justifyContent: 'center' },
-  box: {
-    marginHorizontal: 28, backgroundColor: '#fff',
-    borderRadius: 20, padding: 28, elevation: 8,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2, shadowRadius: 12,
-  },
-  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 },
-  logoIcon: {
-    width: 48, height: 48, borderRadius: 14,
-    backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center',
-  },
-  logoTitle: { fontSize: 24, fontWeight: '800', color: '#4C1D95' },
-  sub: { color: '#6B7280', fontSize: 14, marginBottom: 20 },
-  errorBox: {
-    backgroundColor: '#FEF2F2', borderRadius: 8, borderWidth: 1,
-    borderColor: '#FECACA', padding: 10, marginBottom: 14,
-  },
-  errorText: { color: '#DC2626', fontSize: 13, fontWeight: '500' },
-  input: {
-    backgroundColor: '#F9FAFB', borderRadius: 12, paddingHorizontal: 14,
-    paddingVertical: 12, fontSize: 15, color: '#111827',
-    borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 14,
-  },
-  btn: { backgroundColor: '#7C3AED', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  switchRow: { alignItems: 'center', marginTop: 18 },
+  safe:       { flex: 1, backgroundColor: '#4C1D95', justifyContent: 'center' },
+  box:        { marginHorizontal: 28, backgroundColor: '#fff', borderRadius: 20, padding: 28, elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 12 },
+  logoRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 },
+  logoIcon:   { width: 48, height: 48, borderRadius: 14, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center' },
+  logoTitle:  { fontSize: 24, fontWeight: '800', color: '#4C1D95' },
+  sub:        { color: '#6B7280', fontSize: 14, marginBottom: 20 },
+  errorBox:   { backgroundColor: '#FEF2F2', borderRadius: 8, borderWidth: 1, borderColor: '#FECACA', padding: 10, marginBottom: 14 },
+  errorText:  { color: '#DC2626', fontSize: 13, fontWeight: '500' },
+  input:      { backgroundColor: '#F9FAFB', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: '#111827', borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 14 },
+  btn:        { backgroundColor: '#7C3AED', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
+  btnText:    { color: '#fff', fontSize: 16, fontWeight: '700' },
+  switchRow:  { alignItems: 'center', marginTop: 18 },
   switchText: { color: '#6B7280', fontSize: 13 },
   switchLink: { color: '#7C3AED', fontWeight: '700' },
 });
 
-// ─── App Inner — runs inside NotificationProvider so it can use context ───────
-const AppInner = ({ initialRoute }) => {
+// ─── App Inner ────────────────────────────────────────────────────────────────
+interface AppInnerProps {
+  initialRoute: 'Login' | 'Main';
+}
+
+const AppInner: React.FC<AppInnerProps> = ({ initialRoute }) => {
   const { setUnreadCount } = useNotification();
 
   useEffect(() => {
     if (initialRoute !== 'Main') return;
     let mounted = true;
-    const setup = async () => {
+    const setup = async (): Promise<void> => {
       const socket = await connectSocket();
-      socket.on('notification:new', (notif) => {
+      socket.on('notification:new', (notif: { title?: string; message?: string }) => {
         if (!mounted) return;
         setUnreadCount((c) => c + 1);
         Alert.alert(
@@ -247,17 +255,17 @@ const AppInner = ({ initialRoute }) => {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Main" component={TabNavigator} />
-      </Stack.Navigator>
+      <RootStack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
+        <RootStack.Screen name="Login" component={LoginScreen} />
+        <RootStack.Screen name="Main" component={TabNavigator} />
+      </RootStack.Navigator>
     </NavigationContainer>
   );
 };
 
 // ─── Root App ─────────────────────────────────────────────────────────────────
-export default function App() {
-  const [initialRoute, setInitialRoute] = useState(null);
+export default function App(): React.ReactElement | null {
+  const [initialRoute, setInitialRoute] = useState<'Login' | 'Main' | null>(null);
 
   useEffect(() => {
     AsyncStorage.getItem('token').then(async (t) => {

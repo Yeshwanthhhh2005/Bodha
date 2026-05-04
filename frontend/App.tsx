@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef, CommonActions } from '@react-navigation/native';
+import { setAuthFailureHandler } from './src/services/api';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -12,13 +13,25 @@ import {
 import { API_BASE_URL } from './src/utils/constants';
 import LiveSessionScreen from './src/screens/LiveSessionScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
+import ClassScheduleScreen from './src/screens/ClassScheduleScreen';
+import LeaderboardScreen from './src/screens/LeaderboardScreen';
+import ChallengesScreen from './src/screens/ChallengesScreen';
 import { NotificationProvider, useNotification } from './src/context/NotificationContext';
 import { connectSocket } from './src/services/socket';
 import type { RootStackParamList, LiveSessionsStackParamList } from './src/types';
 
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const LiveStack = createNativeStackNavigator<LiveSessionsStackParamList>();
+const LeaderStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+const LeaderboardStack: React.FC = () => (
+  <LeaderStack.Navigator screenOptions={{ headerShown: false }}>
+    <LeaderStack.Screen name="Leaderboard" component={LeaderboardScreen as React.ComponentType<object>} />
+    <LeaderStack.Screen name="Challenges" component={ChallengesScreen as React.ComponentType<object>} />
+  </LeaderStack.Navigator>
+);
 
 // ─── Tab Icons ────────────────────────────────────────────────────────────────
 interface TabIconProps {
@@ -100,10 +113,10 @@ const TabNavigator: React.FC = () => (
     </Tab.Screen>
 
     <Tab.Screen
-      name="MyLearning"
-      options={{ tabBarIcon: ({ focused }: { focused: boolean }) => <TabIcon icon="📖" label="My Learning" focused={focused} /> }}
+      name="ClassSchedule"
+      options={{ tabBarIcon: ({ focused }: { focused: boolean }) => <TabIcon icon="📅" label="Schedule" focused={focused} /> }}
     >
-      {() => <PlaceholderScreen title="My Learning" icon="📖" />}
+      {(props) => <ClassScheduleScreen navigation={props.navigation} />}
     </Tab.Screen>
 
     <Tab.Screen
@@ -114,10 +127,9 @@ const TabNavigator: React.FC = () => (
 
     <Tab.Screen
       name="Achievements"
-      options={{ tabBarIcon: ({ focused }: { focused: boolean }) => <TabIcon icon="🏆" label="Achievements" focused={focused} /> }}
-    >
-      {() => <PlaceholderScreen title="Achievements" icon="🏆" />}
-    </Tab.Screen>
+      component={LeaderboardStack}
+      options={{ tabBarIcon: ({ focused }: { focused: boolean }) => <TabIcon icon="🏆" label="Leaderboard" focused={focused} /> }}
+    />
   </Tab.Navigator>
 );
 
@@ -253,8 +265,18 @@ const AppInner: React.FC<AppInnerProps> = ({ initialRoute }) => {
     return () => { mounted = false; };
   }, [initialRoute, setUnreadCount]);
 
+  useEffect(() => {
+    setAuthFailureHandler(() => {
+      if (navigationRef.isReady()) {
+        navigationRef.dispatch(
+          CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] })
+        );
+      }
+    });
+  }, []);
+
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <RootStack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Login" component={LoginScreen} />
         <RootStack.Screen name="Main" component={TabNavigator} />

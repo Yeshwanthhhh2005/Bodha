@@ -84,7 +84,11 @@ const servePlayerHtml = (req, res, next) => {
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     res.setHeader(
       'Content-Security-Policy',
-      "default-src 'none'; frame-src https://www.youtube-nocookie.com; script-src 'unsafe-inline'; style-src 'unsafe-inline'"
+      // YouTube live streams may redirect inside the iframe to youtube.com / consent.youtube.com
+      "default-src 'none'; " +
+      "frame-src https://www.youtube-nocookie.com https://www.youtube.com https://youtube.com https://consent.youtube.com; " +
+      "script-src 'unsafe-inline'; " +
+      "style-src 'unsafe-inline'"
     );
     res.send(html);
   } catch (err) {
@@ -116,6 +120,7 @@ const buildPlayerHtml = (embedUrl, isRecording) => `<!DOCTYPE html>
 <body>
   <div id="wrap">
     <iframe
+      id="ytFrame"
       src="${embedUrl}"
       allow="autoplay; encrypted-media; picture-in-picture"
       allowfullscreen="false"
@@ -126,6 +131,11 @@ const buildPlayerHtml = (embedUrl, isRecording) => `<!DOCTYPE html>
       draggable="false"
     ></iframe>
     <div id="shield"></div>
+    <div id="errBox" style="display:none;position:absolute;top:0;left:0;right:0;bottom:0;z-index:20;background:#0f0f1a;color:#E2E8F0;display:none;align-items:center;justify-content:center;flex-direction:column;font-family:system-ui,sans-serif;text-align:center;padding:24px;">
+      <div style="font-size:32px;margin-bottom:10px">⚠️</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:6px">Stream unavailable</div>
+      <div id="errMsg" style="font-size:12px;color:#94A3B8;line-height:1.5">The video could not be loaded. The host may have disabled embedding.</div>
+    </div>
   </div>
   <script>
     // Block all context menus (long-press on Android, right-click on desktop)
@@ -150,8 +160,15 @@ const buildPlayerHtml = (embedUrl, isRecording) => `<!DOCTYPE html>
     // Prevent any navigation away from this page
     window.addEventListener('beforeunload', function(e){ e.preventDefault(); });
 
-    // Block postMessage-based open-in-app attempts
-    window.addEventListener('message', function(e){ e.stopImmediatePropagation(); }, true);
+    // If the iframe fails to load within 8s, show the error overlay
+    var loaded = false;
+    document.getElementById('ytFrame').addEventListener('load', function(){ loaded = true; });
+    setTimeout(function(){
+      if (!loaded) {
+        var box = document.getElementById('errBox');
+        if (box) { box.style.display = 'flex'; }
+      }
+    }, 8000);
   </script>
 </body>
 </html>`;

@@ -213,7 +213,7 @@ export default function Users() {
                       </select>
                     </td>
                     <td style={{ ...s.td, color: '#9CA3AF', fontSize: 12 }}>
-                      {new Date(u.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
+                      {new Date(u.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
                     </td>
                     <td style={s.td}>
                       <button

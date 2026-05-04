@@ -122,13 +122,21 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ navigation })
         <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backBtn}>
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <View style={styles.headerCenter}>
+          <View style={styles.headerIconBox}>
+            <Text style={{ fontSize: 18 }}>🔔</Text>
+          </View>
+          <View>
+            <Text style={styles.headerTitle}>Notifications</Text>
+            <Text style={styles.headerSub}>Stay updated. Never miss a thing.</Text>
+          </View>
+        </View>
         {unreadCount > 0 ? (
           <TouchableOpacity onPress={markAllRead} style={styles.markAllBtn}>
-            <Text style={styles.markAllText}>Mark all read</Text>
+            <Text style={styles.markAllText}>Mark all</Text>
           </TouchableOpacity>
         ) : (
-          <View style={{ width: 80 }} />
+          <View style={{ width: 52 }} />
         )}
       </View>
 
@@ -158,13 +166,16 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ navigation })
 };
 
 const styles = StyleSheet.create({
-  safe:        { flex: 1, backgroundColor: '#F9FAFB' },
-  header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#4C1D95', paddingHorizontal: 16, paddingVertical: 14 },
-  backBtn:     { padding: 4 },
-  backIcon:    { fontSize: 22, color: '#fff' },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#fff' },
-  markAllBtn:  { paddingHorizontal: 4 },
-  markAllText: { fontSize: 13, color: '#C4B5FD', fontWeight: '600' },
+  safe:          { flex: 1, backgroundColor: '#F9FAFB' },
+  header:        { backgroundColor: '#4C1D95', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
+  backBtn:       { padding: 4 },
+  backIcon:      { fontSize: 22, color: '#fff', fontWeight: '600' },
+  headerCenter:  { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerIconBox: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center' },
+  headerTitle:   { fontSize: 16, fontWeight: '700', color: '#fff' },
+  headerSub:     { fontSize: 11, color: '#C4B5FD', marginTop: 1 },
+  markAllBtn:    { paddingHorizontal: 4 },
+  markAllText:   { fontSize: 12, color: '#C4B5FD', fontWeight: '600' },
   loader:      { flex: 1, alignItems: 'center', justifyContent: 'center' },
   item:        { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#fff' },
   itemUnread:  { backgroundColor: '#FAF5FF' },

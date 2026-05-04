@@ -34,36 +34,63 @@ const LiveSessionScreen: React.FC<LiveSessionScreenProps> = ({ route, navigation
   const [pollVisible, setPollVisible] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState<string>('');
 
   // ── Data Loading ─────────────────────────────────────────────────────────
   const loadData = useCallback(async (skipPollReset = false): Promise<void> => {
-    try {
-      const [sessionRes, scheduleRes, remindersRes, pollRes, unreadRes] = await Promise.all([
-        sessionId ? sessionAPI.getSession(sessionId) : Promise.resolve({ data: null }),
-        scheduleAPI.getWeek(),
-        sessionAPI.getMyReminders(),
-        sessionId ? pollAPI.getActive(sessionId).catch(() => null) : Promise.resolve(null),
-        notificationAPI.getUnreadCount().catch(() => null),
-      ]);
+    const safe = <T,>(p: Promise<T>): Promise<T | { __err: any }> =>
+      p.catch((e) => ({ __err: e }));
 
-      if (sessionRes.data) setSession(sessionRes.data as Session);
-      setSchedule((scheduleRes.data as Session[]) || []);
-      setRemindedSessions(new Set((remindersRes.data as string[]) || []));
-      if (unreadRes?.data?.count !== undefined) setUnreadCount(unreadRes.data.count);
+    const [sessionRes, scheduleRes, remindersRes, pollRes, unreadRes] = await Promise.all([
+      sessionId ? safe(sessionAPI.getSession(sessionId)) : Promise.resolve({ data: null }),
+      safe(scheduleAPI.getWeek()),
+      safe(sessionAPI.getMyReminders()),
+      sessionId ? safe(pollAPI.getActive(sessionId)) : Promise.resolve(null),
+      safe(notificationAPI.getUnreadCount()),
+    ]);
 
-      if (pollRes?.data) {
-        setActivePoll(pollRes.data as Poll);
-        if (!skipPollReset) setPollVisible(true);
-      } else if (!skipPollReset) {
-        setActivePoll((prev) => (prev && !prev.closed ? null : prev));
-      }
-    } catch (err: unknown) {
-      console.error('Load data error:', err instanceof Error ? err.message : err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    const isErr = (r: any) => r && '__err' in r;
+    const errs: string[] = [];
+
+    if (sessionId && isErr(sessionRes)) errs.push('session');
+    else if ((sessionRes as any)?.data) setSession((sessionRes as any).data as Session);
+
+    if (isErr(scheduleRes)) {
+      errs.push('schedule');
+      setSchedule([]);
+    } else {
+      setSchedule(((scheduleRes as any).data as Session[]) || []);
     }
-  }, [sessionId]);
+
+    if (isErr(remindersRes)) errs.push('reminders');
+    else setRemindedSessions(new Set(((remindersRes as any).data as string[]) || []));
+
+    if (!isErr(unreadRes) && (unreadRes as any)?.data?.count !== undefined) {
+      setUnreadCount((unreadRes as any).data.count);
+    }
+
+    if (!isErr(pollRes) && (pollRes as any)?.data) {
+      setActivePoll((pollRes as any).data as Poll);
+      if (!skipPollReset) setPollVisible(true);
+    } else if (!skipPollReset) {
+      setActivePoll((prev) => (prev && !prev.closed ? null : prev));
+    }
+
+    if (errs.length) {
+      const firstErr: any =
+        (isErr(sessionRes) && (sessionRes as any).__err) ||
+        (isErr(scheduleRes) && (scheduleRes as any).__err) ||
+        (isErr(remindersRes) && (remindersRes as any).__err);
+      const msg = firstErr?.message || firstErr?.error || 'Network error';
+      setLoadError(`Couldn't load ${errs.join(', ')} — ${msg}`);
+      console.error('Load data error:', errs, firstErr);
+    } else {
+      setLoadError('');
+    }
+
+    setLoading(false);
+    setRefreshing(false);
+  }, [sessionId, setUnreadCount]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -327,6 +354,14 @@ const LiveSessionScreen: React.FC<LiveSessionScreenProps> = ({ route, navigation
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7C3AED" />}
       >
+        {!!loadError && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorBannerText} numberOfLines={2}>⚠️  {loadError}</Text>
+            <TouchableOpacity onPress={onRefresh} style={styles.errorRetryBtn}>
+              <Text style={styles.errorRetryText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         {sessionId ? <VideoSection session={session} /> : renderHero()}
 
         {renderStateBanner()}
@@ -428,6 +463,11 @@ const styles = StyleSheet.create({
   chevron:         { fontSize: 16, color: '#C4B5FD', fontWeight: '700', marginTop: 2 },
 
   scroll:          { flex: 1 },
+
+  errorBanner:     { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', borderLeftWidth: 4, borderLeftColor: '#DC2626', marginHorizontal: 16, marginTop: 10, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, gap: 10 },
+  errorBannerText: { flex: 1, fontSize: 12, fontWeight: '600', color: '#991B1B' },
+  errorRetryBtn:   { backgroundColor: '#DC2626', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 },
+  errorRetryText:  { color: '#fff', fontSize: 12, fontWeight: '700' },
 
   bannerDoubt:     { backgroundColor: '#EDE9FE', marginHorizontal: 16, marginTop: 10, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, borderLeftWidth: 4, borderLeftColor: '#7C3AED' },
   bannerUpcoming:  { backgroundColor: '#FEF3C7', marginHorizontal: 16, marginTop: 10, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, borderLeftWidth: 4, borderLeftColor: '#D97706' },

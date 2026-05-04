@@ -2,6 +2,9 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../utils/constants';
 
+let onAuthFailure: (() => void) | null = null;
+export const setAuthFailureHandler = (cb: () => void) => { onAuthFailure = cb; };
+
 const api = axios.create({ baseURL: API_BASE_URL });
 
 api.interceptors.request.use(async (config) => {
@@ -12,7 +15,16 @@ api.interceptors.request.use(async (config) => {
 
 api.interceptors.response.use(
   (res) => res.data,
-  (err) => Promise.reject(err.response?.data || err)
+  async (err) => {
+    const status = err.response?.status;
+    const body = err.response?.data;
+    // Stale/invalid/missing token → clear and bounce to Login
+    if (status === 401) {
+      try { await AsyncStorage.removeItem('token'); } catch {}
+      try { onAuthFailure?.(); } catch {}
+    }
+    return Promise.reject(body || err);
+  }
 );
 
 export const sessionAPI = {
@@ -39,6 +51,19 @@ export const escalationAPI = {
 
 export const scheduleAPI = {
   getWeek: () => api.get('/schedule'),
+};
+
+export const classScheduleAPI = {
+  getAll: () => api.get('/class-schedule'),
+};
+
+export const courseConfigAPI = {
+  getConfig: () => api.get('/course-config'),
+};
+
+export const leaderboardAPI = {
+  get: () => api.get('/leaderboard'),
+  getChallenges: () => api.get('/leaderboard/challenges'),
 };
 
 export const pollAPI = {

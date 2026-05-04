@@ -43,7 +43,7 @@ function EscalationItem({ item, onRespond }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {isAnswered && <span style={s.answeredTag}>✓ Answered</span>}
           <span style={s.escTime}>
-            {new Date(item.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+            {new Date(item.createdAt).toLocaleString(undefined, { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
           </span>
         </div>
       </div>
@@ -337,7 +337,7 @@ function PollManager({ sessionId }) {
                       <button onClick={() => handleClose(poll._id)} style={ps.closeBtn}>■ Close Poll</button>
                     )}
                     {poll.state === 'CLOSED' && (
-                      <span style={{ fontSize: 11, color: '#9CA3AF' }}>Closed {poll.closedAt ? new Date(poll.closedAt).toLocaleTimeString('en-IN', { timeStyle: 'short' }) : ''}</span>
+                      <span style={{ fontSize: 11, color: '#9CA3AF' }}>Closed {poll.closedAt ? new Date(poll.closedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ''}</span>
                     )}
                   </div>
                 </div>
@@ -464,7 +464,7 @@ export default function SessionDetail() {
             </span>
             <span style={s.metaItem}>{session.category}</span>
             {session.instructor?.name && <span style={s.metaItem}>👤 {session.instructor.name}</span>}
-            <span style={s.metaItem}>🕐 {new Date(session.scheduledAt).toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' })}</span>
+            <span style={s.metaItem}>🕐 {new Date(session.scheduledAt).toLocaleString(undefined, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
             <span style={s.metaItem}>⏱ {session.durationMinutes} min</span>
           </div>
         </div>
@@ -526,7 +526,7 @@ export default function SessionDetail() {
                 ['Topic Context', session.aiTopicContext || '—'],
                 ['YouTube URL', session.youtubeUrl ? <a href={session.youtubeUrl} target="_blank" rel="noreferrer" style={{ color: '#4F46E5', fontSize: 12 }}>Open link</a> : '—'],
                 ['Recording URL', session.recordingUrl ? <a href={session.recordingUrl} target="_blank" rel="noreferrer" style={{ color: '#4F46E5', fontSize: 12 }}>Open link</a> : '—'],
-                ['Doubt Session', session.doubtSessionEndsAt ? `Ends ${new Date(session.doubtSessionEndsAt).toLocaleTimeString('en-IN', { timeStyle: 'short' })}` : '—'],
+                ['Doubt Session', session.doubtSessionEndsAt ? `Ends ${new Date(session.doubtSessionEndsAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}` : '—'],
               ].map(([k, v]) => (
                 <tr key={k}>
                   <td style={s.infoKey}>{k}</td>

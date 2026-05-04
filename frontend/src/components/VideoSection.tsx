@@ -96,6 +96,9 @@ const VideoSection: React.FC<VideoSectionProps> = ({ session }) => {
     const url = request.url || '';
     if (url === 'about:blank') return true;
     if (url.includes('/api/player/embed/')) return true;
+    // Allow nested YouTube/Google domains the embed needs (some Android WebViews
+    // dispatch the hook for nested frames; blocking these breaks live streams).
+    if (/^https?:\/\/(?:[a-z0-9-]+\.)*(?:youtube|youtube-nocookie|googlevideo|ytimg|ggpht|google)\.com\b/i.test(url)) return true;
     return false;
   };
 

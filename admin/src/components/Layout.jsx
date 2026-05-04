@@ -5,6 +5,8 @@ import { useAuth } from '../App.jsx';
 const NAV = [
   { to: '/', label: 'Dashboard', icon: '📊' },
   { to: '/sessions', label: 'Sessions', icon: '🎥' },
+  { to: '/class-schedule', label: 'Class Schedule', icon: '📅' },
+  { to: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
   { to: '/users', label: 'Users', icon: '👥' },
   { to: '/notifications', label: 'Notifications', icon: '🔔' },
 ];

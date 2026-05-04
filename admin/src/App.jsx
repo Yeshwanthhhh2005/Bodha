@@ -6,6 +6,8 @@ import Sessions from './pages/Sessions.jsx';
 import SessionDetail from './pages/SessionDetail.jsx';
 import Notifications from './pages/Notifications.jsx';
 import Users from './pages/Users.jsx';
+import ClassSchedule from './pages/ClassSchedule.jsx';
+import Leaderboard from './pages/Leaderboard.jsx';
 import Layout from './components/Layout.jsx';
 
 export const AuthContext = createContext(null);
@@ -42,6 +44,8 @@ export default function App() {
             <Route path="sessions/:id" element={<SessionDetail />} />
             <Route path="notifications" element={<Notifications />} />
             <Route path="users" element={<Users />} />
+            <Route path="class-schedule" element={<ClassSchedule />} />
+            <Route path="leaderboard" element={<Leaderboard />} />
           </Route>
         </Routes>
       </BrowserRouter>

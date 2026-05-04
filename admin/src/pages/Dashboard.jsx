@@ -98,7 +98,7 @@ export default function Dashboard() {
                   </div>
                   <div style={{ ...styles.td, flex: 2, color: '#6B7280' }}>{s.instructor?.name ?? '—'}</div>
                   <div style={{ ...styles.td, flex: 2, color: '#6B7280' }}>
-                    {new Date(s.scheduledAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                    {new Date(s.scheduledAt).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </div>
                   <div style={{ ...styles.td, flex: 1 }}>
                     <span style={{ ...styles.badge, background: col.bg, color: col.text }}>

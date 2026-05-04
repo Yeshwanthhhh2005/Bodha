@@ -5,6 +5,7 @@ const Reminder = require('../models/Reminder');
 const User = require('../models/User');
 const { success, error } = require('../utils/response');
 const { getIO } = require('../services/socketHandlers');
+const { broadcastToAllStudents } = require('../services/notification.service');
 
 const listSessions = async (req, res, next) => {
   try {
@@ -26,6 +27,15 @@ const createSession = async (req, res, next) => {
   try {
     const session = await LiveSession.create({ ...req.body, createdBy: req.user._id });
     broadcastSessionsUpdated();
+    const dateStr = new Date(session.scheduledAt).toLocaleString('en-IN', {
+      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+    });
+    broadcastToAllStudents({
+      title: '📅 New Session Scheduled',
+      message: `"${session.title}" — ${dateStr}`,
+      type: 'new_content',
+      metadata: { sessionId: session._id, scheduledAt: session.scheduledAt },
+    }).catch(() => {});
     success(res, session, 'Session created', 201);
   } catch (err) {
     next(err);
@@ -34,10 +44,25 @@ const createSession = async (req, res, next) => {
 
 const updateSession = async (req, res, next) => {
   try {
+    const before = await LiveSession.findById(req.params.id).select('scheduledAt title');
     const session = await LiveSession.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
       .select('+youtubeUrl +recordingUrl');
     if (!session) return error(res, 'Session not found', 404);
     broadcastSessionsUpdated();
+    // Only notify when something user-visible (time / title) changes
+    const timeChanged = before && new Date(before.scheduledAt).getTime() !== new Date(session.scheduledAt).getTime();
+    const titleChanged = before && before.title !== session.title;
+    if (timeChanged || titleChanged) {
+      const dateStr = new Date(session.scheduledAt).toLocaleString('en-IN', {
+        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+      });
+      broadcastToAllStudents({
+        title: '🔄 Session Updated',
+        message: `"${session.title}" — ${dateStr}`,
+        type: 'new_content',
+        metadata: { sessionId: session._id, scheduledAt: session.scheduledAt },
+      }).catch(() => {});
+    }
     success(res, session, 'Session updated');
   } catch (err) {
     next(err);
@@ -46,8 +71,16 @@ const updateSession = async (req, res, next) => {
 
 const deleteSession = async (req, res, next) => {
   try {
-    await LiveSession.findByIdAndDelete(req.params.id);
+    const session = await LiveSession.findByIdAndDelete(req.params.id).select('title');
     broadcastSessionsUpdated();
+    if (session) {
+      broadcastToAllStudents({
+        title: '❌ Session Cancelled',
+        message: `"${session.title}" has been cancelled.`,
+        type: 'system',
+        metadata: { sessionId: session._id },
+      }).catch(() => {});
+    }
     success(res, null, 'Session deleted');
   } catch (err) {
     next(err);
@@ -83,6 +116,22 @@ const updateSessionState = async (req, res, next) => {
     const io = getIO();
     io.to(`session:${session._id}`).emit('session:state_change', { state, session });
     io.emit('sessions:updated');
+
+    if (state === 'LIVE') {
+      broadcastToAllStudents({
+        title: '🔴 Session is LIVE',
+        message: `"${session.title}" has started — join now!`,
+        type: 'session_reminder',
+        metadata: { sessionId: session._id },
+      }).catch(() => {});
+    } else if (state === 'DOUBT_SESSION') {
+      broadcastToAllStudents({
+        title: '🎓 Doubt Session Open',
+        message: `Ask your trainer questions in "${session.title}".`,
+        type: 'session_reminder',
+        metadata: { sessionId: session._id },
+      }).catch(() => {});
+    }
 
     success(res, session, `Session state updated to ${state}`);
   } catch (err) {

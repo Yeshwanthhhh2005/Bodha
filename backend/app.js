@@ -12,6 +12,9 @@ const scheduleRoutes = require('./src/routes/schedule.routes');
 const playerRoutes = require('./src/routes/player.routes');
 const pollRoutes = require('./src/routes/poll.routes');
 const notificationRoutes = require('./src/routes/notification.routes');
+const classScheduleRoutes = require('./src/routes/classSchedule.routes');
+const courseConfigRoutes  = require('./src/routes/courseConfig.routes');
+const leaderboardRoutes   = require('./src/routes/leaderboard.routes');
 
 const app = express();
 
@@ -30,6 +33,10 @@ app.use('/api/schedule', scheduleRoutes);
 app.use('/api/player', playerRoutes);
 app.use('/api/polls', pollRoutes);
 app.use('/api/notifications', notificationRoutes);
+
+app.use('/api/class-schedule', classScheduleRoutes);
+app.use('/api/course-config',  courseConfigRoutes);
+app.use('/api/leaderboard',    leaderboardRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 

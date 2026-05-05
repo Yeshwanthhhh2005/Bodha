@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ActivityIndicator, SafeAreaView,
@@ -34,16 +35,23 @@ const LeaderboardStack: React.FC = () => (
 );
 
 // ─── Tab Icons ────────────────────────────────────────────────────────────────
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
 interface TabIconProps {
-  icon: string;
+  iconActive: IoniconName;
+  iconInactive: IoniconName;
   label: string;
   focused: boolean;
 }
 
-const TabIcon: React.FC<TabIconProps> = ({ icon, label, focused }) => (
+const TabIcon: React.FC<TabIconProps> = ({ iconActive, iconInactive, label, focused }) => (
   <View style={tabS.item}>
     <View style={[tabS.iconWrap, focused && tabS.iconWrapActive]}>
-      <Text style={[tabS.icon, focused && tabS.iconActive]}>{icon}</Text>
+      <Ionicons
+        name={focused ? iconActive : iconInactive}
+        size={20}
+        color={focused ? '#fff' : '#9CA3AF'}
+      />
     </View>
     <Text style={[tabS.label, focused && tabS.labelActive]}>{label}</Text>
   </View>
@@ -53,8 +61,6 @@ const tabS = StyleSheet.create({
   item:          { alignItems: 'center', justifyContent: 'center', paddingTop: 6 },
   iconWrap:      { width: 44, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   iconWrapActive:{ backgroundColor: '#7C3AED' },
-  icon:          { fontSize: 20 },
-  iconActive:    {},
   label:         { fontSize: 10, color: '#9CA3AF', marginTop: 2, fontWeight: '500' },
   labelActive:   { color: '#7C3AED', fontWeight: '700' },
 });
@@ -62,12 +68,12 @@ const tabS = StyleSheet.create({
 // ─── Placeholder Screens ──────────────────────────────────────────────────────
 interface PlaceholderScreenProps {
   title: string;
-  icon: string;
+  iconName: IoniconName;
 }
 
-const PlaceholderScreen: React.FC<PlaceholderScreenProps> = ({ title, icon }) => (
+const PlaceholderScreen: React.FC<PlaceholderScreenProps> = ({ title, iconName }) => (
   <SafeAreaView style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9FAFB' }}>
-    <Text style={{ fontSize: 48, marginBottom: 12 }}>{icon}</Text>
+    <Ionicons name={iconName} size={56} color="#D1D5DB" style={{ marginBottom: 12 }} />
     <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>{title}</Text>
     <Text style={{ fontSize: 13, color: '#9CA3AF', marginTop: 6 }}>Coming soon</Text>
   </SafeAreaView>
@@ -107,14 +113,22 @@ const TabNavigator: React.FC = () => (
   >
     <Tab.Screen
       name="Home"
-      options={{ tabBarIcon: ({ focused }: { focused: boolean }) => <TabIcon icon="🏠" label="Home" focused={focused} /> }}
+      options={{
+        tabBarIcon: ({ focused }: { focused: boolean }) => (
+          <TabIcon iconActive="home" iconInactive="home-outline" label="Home" focused={focused} />
+        ),
+      }}
     >
-      {() => <PlaceholderScreen title="Home" icon="🏠" />}
+      {() => <PlaceholderScreen title="Home" iconName="home-outline" />}
     </Tab.Screen>
 
     <Tab.Screen
       name="ClassSchedule"
-      options={{ tabBarIcon: ({ focused }: { focused: boolean }) => <TabIcon icon="📅" label="Schedule" focused={focused} /> }}
+      options={{
+        tabBarIcon: ({ focused }: { focused: boolean }) => (
+          <TabIcon iconActive="calendar" iconInactive="calendar-outline" label="Schedule" focused={focused} />
+        ),
+      }}
     >
       {(props) => <ClassScheduleScreen navigation={props.navigation} />}
     </Tab.Screen>
@@ -122,13 +136,21 @@ const TabNavigator: React.FC = () => (
     <Tab.Screen
       name="LiveSessions"
       component={LiveSessionsStack}
-      options={{ tabBarIcon: ({ focused }: { focused: boolean }) => <TabIcon icon="📹" label="Live Sessions" focused={focused} /> }}
+      options={{
+        tabBarIcon: ({ focused }: { focused: boolean }) => (
+          <TabIcon iconActive="videocam" iconInactive="videocam-outline" label="Live Sessions" focused={focused} />
+        ),
+      }}
     />
 
     <Tab.Screen
       name="Achievements"
       component={LeaderboardStack}
-      options={{ tabBarIcon: ({ focused }: { focused: boolean }) => <TabIcon icon="🏆" label="Leaderboard" focused={focused} /> }}
+      options={{
+        tabBarIcon: ({ focused }: { focused: boolean }) => (
+          <TabIcon iconActive="trophy" iconInactive="trophy-outline" label="Leaderboard" focused={focused} />
+        ),
+      }}
     />
   </Tab.Navigator>
 );
@@ -184,7 +206,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       <StatusBar barStyle="light-content" backgroundColor="#4C1D95" />
       <View style={ls.box}>
         <View style={ls.logoRow}>
-          <View style={ls.logoIcon}><Text style={{ fontSize: 28 }}>📹</Text></View>
+          <View style={ls.logoIcon}><Ionicons name="videocam" size={28} color="#7C3AED" /></View>
           <Text style={ls.logoTitle}>Bodha LMS</Text>
         </View>
         <Text style={ls.sub}>{mode === 'login' ? 'Sign in to continue' : 'Create your account'}</Text>

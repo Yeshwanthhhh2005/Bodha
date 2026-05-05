@@ -40,6 +40,20 @@ app.use('/api/leaderboard',    leaderboardRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
+app.get('/', (req, res) => {
+  res.json({
+    name: 'Bodha LMS API',
+    status: 'running',
+    health: '/api/health',
+    endpoints: [
+      '/api/auth', '/api/sessions', '/api/chat', '/api/escalations',
+      '/api/admin', '/api/schedule', '/api/player', '/api/polls',
+      '/api/notifications', '/api/class-schedule', '/api/course-config',
+      '/api/leaderboard',
+    ],
+  });
+});
+
 app.use(errorHandler);
 
 module.exports = app;

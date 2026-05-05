@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { leaderboardAPI } from '../services/api';
 import { connectSocket, getSocket } from '../services/socket';
 
@@ -116,30 +117,21 @@ export default function LeaderboardScreen({ navigation }: Props): React.ReactEle
 
   return (
     <SafeAreaView style={s.safe}>
-      <StatusBar barStyle="light-content" backgroundColor="#4C1D95" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* ── Header ── */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation?.goBack?.()} style={s.backBtn}>
-          <Text style={s.backIcon}>←</Text>
+          <Ionicons name="arrow-back" size={26} color="#7C3AED" />
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <View style={s.headerIconBox}>
-            <Text style={{ fontSize: 18 }}>🏆</Text>
-          </View>
-          <View>
-            <Text style={s.headerTitle}>Leadership Board</Text>
-            <Text style={s.headerSub}>Compete. Earn Points. Climb Higher!</Text>
-          </View>
+          <Text style={s.headerTitle}>Leadership Board</Text>
+          <Text style={s.headerSub}>Compete. Earn Points. Climb Higher!</Text>
         </View>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity style={s.filterBtn}>
+          <Ionicons name="filter" size={22} color="#7C3AED" />
+        </TouchableOpacity>
       </View>
-
-      {!!debug && (
-        <View style={s.debugBanner}>
-          <Text style={s.debugText}>{debug}</Text>
-        </View>
-      )}
 
       <ScrollView
         contentContainerStyle={{ paddingBottom: 32, paddingTop: 10 }}
@@ -150,7 +142,7 @@ export default function LeaderboardScreen({ navigation }: Props): React.ReactEle
           <View style={s.banner}>
             <View style={s.bannerLeft}>
               <View style={s.bannerPill}>
-                <Text style={s.bannerPillIcon}>🏆</Text>
+                <Ionicons name="trophy" size={11} color="#FBBF24" style={{ marginRight: 5 }} />
                 <Text style={s.bannerPillText}>Current Challenge</Text>
               </View>
               <Text style={s.bannerTitle}>{data.challenge.name}</Text>
@@ -159,7 +151,7 @@ export default function LeaderboardScreen({ navigation }: Props): React.ReactEle
                 {data.challenge.description || 'Complete tasks, earn points and lead your team to victory!'}
               </Text>
               <View style={s.bannerStat}>
-                <Text style={s.bannerStatStar}>⭐</Text>
+                <Ionicons name="star" size={18} color="#FBBF24" />
                 <View>
                   <Text style={s.bannerStatLabel}>Total Teams</Text>
                   <Text style={s.bannerStatValue}>{data.totalTeams}</Text>
@@ -167,7 +159,7 @@ export default function LeaderboardScreen({ navigation }: Props): React.ReactEle
               </View>
             </View>
             <View style={s.bannerRight}>
-              <Text style={s.trophy}>🏆</Text>
+              <Ionicons name="trophy" size={88} color="#FBBF24" />
             </View>
           </View>
         ) : (
@@ -208,11 +200,11 @@ export default function LeaderboardScreen({ navigation }: Props): React.ReactEle
               {rank1 ? (
                 <>
                   <View style={s.laurelRow}>
-                    <Text style={s.laurel}>🌿</Text>
+                    <MaterialCommunityIcons name="leaf" size={26} color="#A16207" />
                     <View style={[s.podiumIconLarge, { backgroundColor: rank1.color || '#7C3AED' }]}>
                       <Text style={s.podiumIconLargeText}>{rank1.icon || '🚀'}</Text>
                     </View>
-                    <Text style={s.laurel}>🌿</Text>
+                    <MaterialCommunityIcons name="leaf" size={26} color="#A16207" style={{ transform: [{ scaleX: -1 }] }} />
                   </View>
                   <Text style={s.podiumNameLarge} numberOfLines={1}>{rank1.name}</Text>
                   <Text style={[s.podiumPtsLarge, { color: '#7C3AED' }]}>
@@ -266,7 +258,7 @@ export default function LeaderboardScreen({ navigation }: Props): React.ReactEle
 
         {teams.length === 0 && (
           <View style={s.emptyState}>
-            <Text style={s.emptyEmoji}>🏆</Text>
+            <Ionicons name="trophy-outline" size={48} color="#D1D5DB" style={{ marginBottom: 12 }} />
             <Text style={s.emptyTitle}>No teams yet</Text>
             <Text style={s.emptySub}>Once teams are added, rankings will appear here.</Text>
           </View>
@@ -275,7 +267,7 @@ export default function LeaderboardScreen({ navigation }: Props): React.ReactEle
         {/* ── Footer Card ── */}
         <View style={s.footerCard}>
           <View style={s.footerIconWrap}>
-            <Text style={s.footerIcon}>🎯</Text>
+            <MaterialCommunityIcons name="target" size={28} color="#7C3AED" />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={s.footerTitle}>Keep Climbing!</Text>
@@ -295,13 +287,14 @@ const s = StyleSheet.create({
   loadingSafe: { flex: 1, backgroundColor: '#F9FAFB', alignItems: 'center', justifyContent: 'center' },
 
   // Header
-  header:        { backgroundColor: '#4C1D95', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
-  backBtn:       { padding: 4 },
-  backIcon:      { fontSize: 22, color: '#fff', fontWeight: '600' },
-  headerCenter:  { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerIconBox: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center' },
-  headerTitle:   { fontSize: 16, fontWeight: '700', color: '#fff' },
-  headerSub:     { fontSize: 11, color: '#C4B5FD', marginTop: 1 },
+  header:        { backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
+  backBtn:       { width: 40, alignItems: 'flex-start', padding: 4 },
+  backIcon:      { fontSize: 26, color: '#7C3AED', fontWeight: '600' },
+  headerCenter:  { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  headerTitle:   { fontSize: 18, fontWeight: '800', color: '#111827', textAlign: 'center' },
+  headerSub:     { fontSize: 12, color: '#6B7280', marginTop: 3, textAlign: 'center' },
+  filterBtn:     { width: 40, alignItems: 'flex-end', padding: 4 },
+  filterIcon:    { fontSize: 22, color: '#7C3AED', fontWeight: '700' },
 
   // Banner
   banner:        {

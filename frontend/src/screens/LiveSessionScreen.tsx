@@ -4,18 +4,57 @@ import {
   StatusBar, ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { sessionAPI, scheduleAPI, pollAPI, notificationAPI } from '../services/api';
 import { useNotification } from '../context/NotificationContext';
 import { connectSocket, joinSession, leaveSession, getSocket } from '../services/socket';
 import { SESSION_STATES } from '../utils/constants';
 import VideoSection from '../components/VideoSection';
 import SessionInfo from '../components/SessionInfo';
-import SessionCard from '../components/SessionCard';
 import ChatModal from '../components/ChatModal';
 import PollModal from '../components/PollModal';
 import type { Session, Poll } from '../types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { LiveSessionsStackParamList } from '../types';
+
+// ─── Day color & subject icon mapping ──────────────────────────────────────────
+const DAY_COLORS: Record<string, string> = {
+  Mon: '#7C3AED', Tue: '#10B981', Wed: '#F59E0B', Thu: '#3B82F6',
+  Fri: '#EC4899', Sat: '#8B5CF6', Sun: '#14B8A6',
+};
+
+const renderSubjectIcon = (kind: string, color: string): React.ReactNode => {
+  const size = 22;
+  switch (kind) {
+    case 'code':     return <Text style={{ fontSize: 17, fontWeight: '900', color }}>{'</>'}</Text>;
+    case 'database': return <MaterialCommunityIcons name="database" size={size} color={color} />;
+    case 'os':       return <MaterialCommunityIcons name="file-tree" size={size} color={color} />;
+    case 'network':  return <Ionicons name="globe-outline" size={size} color={color} />;
+    case 'security': return <MaterialCommunityIcons name="shield-account" size={size} color={color} />;
+    case 'ai':       return <MaterialCommunityIcons name="brain" size={size} color={color} />;
+    case 'design':   return <MaterialCommunityIcons name="palette" size={size} color={color} />;
+    default:         return <MaterialCommunityIcons name="book-open-variant" size={size} color={color} />;
+  }
+};
+
+const SUBJECT_THEMES: { keys: string[]; kind: string; bg: string; fg: string }[] = [
+  { keys: ['data structure', 'algorithm', 'dsa', 'dynamic'], kind: 'code',     bg: '#EDE9FE', fg: '#7C3AED' },
+  { keys: ['database', 'sql', 'dbms'],                       kind: 'database', bg: '#D1FAE5', fg: '#059669' },
+  { keys: ['operating system', 'os '],                       kind: 'os',       bg: '#FFEDD5', fg: '#F97316' },
+  { keys: ['network'],                                       kind: 'network',  bg: '#DBEAFE', fg: '#3B82F6' },
+  { keys: ['security', 'cyber'],                             kind: 'security', bg: '#FCE7F3', fg: '#EC4899' },
+  { keys: ['ai', 'artificial', 'machine'],                   kind: 'ai',       bg: '#EDE9FE', fg: '#7C3AED' },
+  { keys: ['c++', 'stl', 'cpp', 'java', 'python'],           kind: 'code',     bg: '#CCFBF1', fg: '#0D9488' },
+  { keys: ['web', 'html', 'css', 'react'],                   kind: 'design',   bg: '#FEF3C7', fg: '#D97706' },
+];
+
+const themeFor = (title: string, category?: string): { kind: string; bg: string; fg: string } => {
+  const t = (title + ' ' + (category || '')).toLowerCase();
+  for (const th of SUBJECT_THEMES) {
+    if (th.keys.some((k) => t.includes(k))) return th;
+  }
+  return { kind: 'default', bg: '#EDE9FE', fg: '#7C3AED' };
+};
 
 interface LiveSessionScreenProps {
   route?: { params?: { sessionId?: string } };
@@ -199,77 +238,141 @@ const LiveSessionScreen: React.FC<LiveSessionScreenProps> = ({ route, navigation
     loadData();
   };
 
-  // ── List-view hero ───────────────────────────────────────────────────────
+  // ── List-view hero (video-player style) ─────────────────────────────────
   const renderHero = (): React.ReactElement => {
-    if (liveSession) {
-      const isDoubt = liveSession.state === SESSION_STATES.DOUBT_SESSION;
+    const target = liveSession || nextUpcoming;
+    if (!target) {
       return (
-        <TouchableOpacity
-          style={styles.heroCard}
-          activeOpacity={0.88}
-          onPress={() => navigation?.push('LiveSession', { sessionId: liveSession._id })}
-        >
-          <View style={styles.heroBg}>
-            <View style={styles.heroTopRow}>
-              <View style={[styles.heroBadge, isDoubt && styles.heroBadgeDoubt]}>
-                <View style={styles.heroBadgeDot} />
-                <Text style={styles.heroBadgeText}>{isDoubt ? 'DOUBT SESSION' : 'LIVE NOW'}</Text>
+        <View style={[styles.heroCard, styles.heroEmpty]}>
+          <Ionicons name="videocam-off-outline" size={44} color="#9CA3AF" style={{ marginBottom: 10 }} />
+          <Text style={styles.heroEmptyTitle}>No Sessions</Text>
+          <Text style={styles.heroEmptySub}>No sessions are scheduled right now.</Text>
+        </View>
+      );
+    }
+    const isLive  = !!liveSession;
+    const isDoubt = liveSession?.state === SESSION_STATES.DOUBT_SESSION;
+
+    return (
+      <TouchableOpacity
+        style={styles.heroCard}
+        activeOpacity={0.92}
+        onPress={() => navigation?.push('LiveSession', { sessionId: target._id })}
+      >
+        <View style={styles.heroBg}>
+          {/* Top overlay: LIVE pill + watcher count */}
+          <View style={styles.heroTopRow}>
+            {isLive ? (
+              <View style={[styles.livePill, isDoubt && { backgroundColor: '#F97316' }]}>
+                <Text style={styles.livePillText}>{isDoubt ? 'DOUBT' : 'LIVE'}</Text>
               </View>
-              {!isDoubt && (
-                <View style={styles.heroWatchers}>
-                  <Text style={styles.heroWatchersText}>👤 {liveSession.watcherCount ?? 0}</Text>
+            ) : (
+              <View style={styles.upcomingPill}>
+                <Text style={styles.upcomingPillText}>UPCOMING</Text>
+              </View>
+            )}
+            {isLive && (
+              <View style={styles.watcherPill}>
+                <Ionicons name="person" size={11} color="#fff" />
+                <Text style={styles.watcherPillText}>{target.watcherCount ?? 0}</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Center decorative content */}
+          <View style={styles.heroCenter}>
+            <Text style={styles.heroTitleBig} numberOfLines={2}>{target.title}</Text>
+            <Text style={styles.heroSubBig} numberOfLines={1}>
+              {target.instructor?.name || 'Instructor'}
+            </Text>
+          </View>
+
+          {/* Bottom controls overlay */}
+          <View style={styles.heroControls}>
+            <View style={styles.heroControlsLeft}>
+              <Ionicons name="pause" size={18} color="#fff" />
+              <Ionicons name="volume-high" size={18} color="#fff" />
+              {isLive && (
+                <View style={styles.heroLiveDotRow}>
+                  <View style={styles.heroLiveDot} />
+                  <Text style={styles.heroLiveDotText}>LIVE</Text>
                 </View>
               )}
             </View>
-            <Text style={styles.heroTitle} numberOfLines={2}>{liveSession.title}</Text>
-            <Text style={styles.heroInstructor} numberOfLines={1}>
-              {liveSession.instructor?.name || 'Instructor'}
-            </Text>
-            <View style={[styles.heroCta, isDoubt && { backgroundColor: '#7C3AED' }]}>
-              <Text style={styles.heroCtaText}>
-                {isDoubt ? '🎓 Join Doubt Session' : '▶  Watch Live'}
-              </Text>
+            <View style={styles.heroControlsRight}>
+              <Ionicons name="chatbubble-outline" size={18} color="#fff" />
+              <Ionicons name="people" size={18} color="#fff" />
+              <Ionicons name="expand" size={18} color="#fff" />
             </View>
           </View>
-        </TouchableOpacity>
-      );
-    }
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
-    if (nextUpcoming) {
-      const timeStr = new Date(nextUpcoming.scheduledAt).toLocaleTimeString([], {
-        hour: '2-digit', minute: '2-digit', hour12: true,
-      });
-      const dateStr = new Date(nextUpcoming.scheduledAt).toLocaleDateString('en-US', {
-        weekday: 'short', month: 'short', day: 'numeric',
-      });
-      return (
-        <TouchableOpacity
-          style={styles.heroCard}
-          activeOpacity={0.88}
-          onPress={() => navigation?.push('LiveSession', { sessionId: nextUpcoming._id })}
-        >
-          <View style={[styles.heroBg, styles.heroBgUpcoming]}>
-            <View style={styles.heroTopRow}>
-              <View style={[styles.heroBadge, styles.heroBadgeUpcoming]}>
-                <Text style={styles.heroBadgeText}>📅  UPCOMING</Text>
-              </View>
-            </View>
-            <Text style={styles.heroTitle} numberOfLines={2}>{nextUpcoming.title}</Text>
-            <Text style={styles.heroInstructor} numberOfLines={1}>
-              {nextUpcoming.instructor?.name || 'Instructor'}
-            </Text>
-            <Text style={styles.heroTime}>{dateStr} · {timeStr} · {nextUpcoming.durationMinutes} min</Text>
-          </View>
-        </TouchableOpacity>
-      );
-    }
+  // ── Rich upcoming-class card ─────────────────────────────────────────────
+  const renderUpcomingCard = (s: Session): React.ReactElement => {
+    const d = new Date(s.scheduledAt);
+    const dayShort = d.toLocaleDateString('en-US', { weekday: 'short' });
+    const dayKey   = dayShort.slice(0, 3);
+    const dayColor = DAY_COLORS[dayKey] || '#7C3AED';
+    const dateNum  = d.getDate();
+    const monthSh  = d.toLocaleDateString('en-US', { month: 'short' });
+    const timeStr  = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    const theme    = themeFor(s.title, s.category);
+    const reminded = remindedSessions.has(s._id);
 
     return (
-      <View style={[styles.heroCard, styles.heroEmpty]}>
-        <Text style={styles.heroEmptyIcon}>📭</Text>
-        <Text style={styles.heroEmptyTitle}>No Sessions</Text>
-        <Text style={styles.heroEmptySub}>No sessions are scheduled right now.</Text>
-      </View>
+      <TouchableOpacity
+        key={s._id}
+        style={styles.classCard}
+        activeOpacity={0.85}
+        onPress={() => navigation?.push('LiveSession', { sessionId: s._id })}
+      >
+        <View style={styles.dayChip}>
+          <Text style={[styles.dayChipName, { color: dayColor }]}>{dayKey}</Text>
+          <Text style={[styles.dayChipDate, { color: dayColor }]}>{dateNum}</Text>
+          <Text style={[styles.dayChipMonth, { color: dayColor }]}>{monthSh}</Text>
+        </View>
+
+        <View style={[styles.subjectIconBox, { backgroundColor: theme.bg }]}>
+          {renderSubjectIcon(theme.kind, theme.fg)}
+        </View>
+
+        <View style={styles.classMeta}>
+          <Text style={styles.classTitle} numberOfLines={1}>{s.title}</Text>
+          <Text style={styles.classProf} numberOfLines={1}>
+            {s.instructor?.name || 'Instructor'}
+          </Text>
+          {!!s.category && (
+            <View style={styles.categoryTag}>
+              <Text style={styles.categoryTagText}>{s.category}</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.classRight}>
+          <View style={styles.timeRow}>
+            <Ionicons name="time-outline" size={12} color="#6B7280" />
+            <Text style={styles.timeText}>{timeStr}</Text>
+          </View>
+          <Text style={styles.durationText}>{s.durationMinutes ?? 60} min</Text>
+          <TouchableOpacity
+            style={styles.remindBtn}
+            onPress={(e) => { e.stopPropagation?.(); toggleReminder(s._id); }}
+            hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+          >
+            <Ionicons
+              name={reminded ? 'notifications' : 'notifications-outline'}
+              size={13}
+              color={dayColor}
+            />
+            <Text style={[styles.remindText, { color: dayColor }]}>
+              {reminded ? 'Reminded' : 'Remind Me'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -307,17 +410,17 @@ const LiveSessionScreen: React.FC<LiveSessionScreenProps> = ({ route, navigation
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" backgroundColor="#4C1D95" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backBtn}>
-          <Text style={styles.backIcon}>←</Text>
+          <Ionicons name="arrow-back" size={26} color="#7C3AED" />
         </TouchableOpacity>
 
         <View style={styles.headerCenter}>
           <View style={styles.headerIconBox}>
-            <Text style={styles.headerIconText}>📹</Text>
+            <Ionicons name="videocam" size={22} color="#fff" />
           </View>
           <View>
             <Text style={styles.headerTitle}>Live Sessions</Text>
@@ -333,7 +436,7 @@ const LiveSessionScreen: React.FC<LiveSessionScreenProps> = ({ route, navigation
               navigation?.navigate('Notifications');
             }}
           >
-            <Text style={styles.notifIcon}>🔔</Text>
+            <Ionicons name="notifications-outline" size={24} color="#374151" />
             {unreadCount > 0 && (
               <View style={styles.notifBadge}>
                 <Text style={styles.notifBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
@@ -342,9 +445,9 @@ const LiveSessionScreen: React.FC<LiveSessionScreenProps> = ({ route, navigation
           </TouchableOpacity>
           <TouchableOpacity style={styles.avatarRow}>
             <View style={styles.avatarBtn}>
-              <Text style={styles.avatarText}>🧑‍💻</Text>
+              <Ionicons name="person" size={18} color="#10B981" />
             </View>
-            <Text style={styles.chevron}>⌄</Text>
+            <Ionicons name="chevron-down" size={14} color="#9CA3AF" />
           </TouchableOpacity>
         </View>
       </View>
@@ -356,7 +459,8 @@ const LiveSessionScreen: React.FC<LiveSessionScreenProps> = ({ route, navigation
       >
         {!!loadError && (
           <View style={styles.errorBanner}>
-            <Text style={styles.errorBannerText} numberOfLines={2}>⚠️  {loadError}</Text>
+            <Ionicons name="alert-circle" size={16} color="#DC2626" />
+            <Text style={styles.errorBannerText} numberOfLines={2}>{loadError}</Text>
             <TouchableOpacity onPress={onRefresh} style={styles.errorRetryBtn}>
               <Text style={styles.errorRetryText}>Retry</Text>
             </TouchableOpacity>
@@ -395,29 +499,24 @@ const LiveSessionScreen: React.FC<LiveSessionScreenProps> = ({ route, navigation
         />
 
         <View style={styles.scheduleHeader}>
-          <Text style={styles.scheduleTitle}>All Sessions</Text>
-          <TouchableOpacity>
-            <Text style={styles.calendarViewBtn}>📅 Calendar View</Text>
+          <Text style={styles.scheduleTitle}>Upcoming Classes (This Week)</Text>
+          <TouchableOpacity style={styles.calBtn}>
+            <Ionicons name="calendar-outline" size={14} color="#7C3AED" />
+            <Text style={styles.calendarViewBtn}>Calendar View</Text>
           </TouchableOpacity>
         </View>
 
         {listItems.length === 0 ? (
           <View style={styles.emptySchedule}>
-            <Text style={styles.emptyScheduleIcon}>📭</Text>
+            <Ionicons name="calendar-outline" size={52} color="#D1D5DB" style={{ marginBottom: 14 }} />
             <Text style={styles.emptyScheduleTitle}>No Sessions</Text>
             <Text style={styles.emptyScheduleText}>There are no sessions scheduled right now. Check back later.</Text>
           </View>
         ) : (
-          listItems.map((s) => (
-            <SessionCard
-              key={s._id}
-              session={s}
-              onPress={() => navigation?.push('LiveSession', { sessionId: s._id })}
-              onRemind={toggleReminder}
-              isReminded={remindedSessions.has(s._id)}
-              isSelected={s._id === sessionId}
-            />
-          ))
+          listItems
+            .filter((s) => s.state === SESSION_STATES.UPCOMING)
+            .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
+            .map(renderUpcomingCard)
         )}
 
         <View style={styles.bottomPad} />
@@ -444,23 +543,24 @@ const styles = StyleSheet.create({
   loadingContainer:{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9FAFB', gap: 12 },
   loadingText:     { color: '#6B7280', fontSize: 14 },
 
-  header:          { backgroundColor: '#4C1D95', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
+  // ── Light header ─────────────────────────────────────
+  header:          { backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
   backBtn:         { padding: 4 },
-  backIcon:        { fontSize: 22, color: '#fff', fontWeight: '600' },
+  backIcon:        { fontSize: 26, color: '#7C3AED', fontWeight: '600' },
   headerCenter:    { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerIconBox:   { width: 40, height: 40, borderRadius: 10, backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center' },
-  headerIconText:  { fontSize: 18 },
-  headerTitle:     { fontSize: 16, fontWeight: '700', color: '#fff' },
-  headerSubtitle:  { fontSize: 11, color: '#C4B5FD', marginTop: 1 },
-  headerRight:     { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerIconBox:   { width: 42, height: 42, borderRadius: 11, backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center' },
+  headerIconText:  { fontSize: 18, color: '#fff' },
+  headerTitle:     { fontSize: 17, fontWeight: '800', color: '#111827' },
+  headerSubtitle:  { fontSize: 12, color: '#6B7280', marginTop: 1 },
+  headerRight:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
   notifBtn:        { position: 'relative', padding: 4 },
-  notifIcon:       { fontSize: 20 },
-  notifBadge:      { position: 'absolute', top: 0, right: 0, backgroundColor: '#EF4444', borderRadius: 8, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#4C1D95' },
-  notifBadgeText:  { color: '#fff', fontSize: 9, fontWeight: '700' },
-  avatarRow:       { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  avatarBtn:       { width: 36, height: 36, borderRadius: 18, backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#C4B5FD' },
+  notifIcon:       { fontSize: 22 },
+  notifBadge:      { position: 'absolute', top: 0, right: 0, backgroundColor: '#7C3AED', borderRadius: 9, minWidth: 18, height: 18, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#fff' },
+  notifBadgeText:  { color: '#fff', fontSize: 10, fontWeight: '800' },
+  avatarRow:       { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  avatarBtn:       { width: 38, height: 38, borderRadius: 19, backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#7C3AED' },
   avatarText:      { fontSize: 18 },
-  chevron:         { fontSize: 16, color: '#C4B5FD', fontWeight: '700', marginTop: 2 },
+  chevron:         { fontSize: 14, color: '#9CA3AF', fontWeight: '700', marginTop: 2 },
 
   scroll:          { flex: 1 },
 
@@ -482,35 +582,63 @@ const styles = StyleSheet.create({
   pollAnswerBtn:   { backgroundColor: '#7C3AED', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7, flexShrink: 0 },
   pollAnswerText:  { fontSize: 12, fontWeight: '700', color: '#fff' },
 
-  scheduleHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 16, marginTop: 20, marginBottom: 12, gap: 8 },
-  scheduleTitle:   { fontSize: 16, fontWeight: '700', color: '#111827', flex: 1 },
-  calendarViewBtn: { fontSize: 13, color: '#7C3AED', fontWeight: '600', flexShrink: 0 },
+  scheduleHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 16, marginTop: 22, marginBottom: 12, gap: 8 },
+  scheduleTitle:   { fontSize: 17, fontWeight: '800', color: '#111827', flex: 1 },
+  calBtn:          { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  calBtnIcon:      { fontSize: 13 },
+  calendarViewBtn: { fontSize: 13, color: '#7C3AED', fontWeight: '700' },
   emptySchedule:   { alignItems: 'center', paddingVertical: 52, paddingHorizontal: 32 },
   emptyScheduleIcon:  { fontSize: 52, marginBottom: 14 },
   emptyScheduleTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 8 },
   emptyScheduleText:  { fontSize: 13, color: '#9CA3AF', textAlign: 'center', lineHeight: 20 },
   bottomPad:       { height: 32 },
 
-  heroCard:        { marginHorizontal: 16, marginTop: 10, borderRadius: 16, overflow: 'hidden', elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.22, shadowRadius: 8 },
-  heroBg:          { backgroundColor: '#0f0f1a', padding: 20, gap: 8 },
-  heroBgUpcoming:  { backgroundColor: '#1a1040' },
-  heroTopRow:      { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  heroBadge:       { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EF4444', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, gap: 5 },
-  heroBadgeDoubt:  { backgroundColor: '#F97316' },
-  heroBadgeUpcoming: { backgroundColor: '#4C1D95' },
-  heroBadgeDot:    { width: 6, height: 6, borderRadius: 3, backgroundColor: '#fff' },
-  heroBadgeText:   { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
-  heroWatchers:    { backgroundColor: 'rgba(255,255,255,0.12)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  heroWatchersText:{ color: '#E2E8F0', fontSize: 11, fontWeight: '600' },
-  heroTitle:       { fontSize: 18, fontWeight: '800', color: '#fff', lineHeight: 24 },
-  heroInstructor:  { fontSize: 13, color: '#94A3B8' },
-  heroTime:        { fontSize: 12, color: '#818CF8', fontWeight: '600', marginTop: 2 },
-  heroCta:         { marginTop: 12, backgroundColor: '#EF4444', borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
-  heroCtaText:     { color: '#fff', fontSize: 14, fontWeight: '700', letterSpacing: 0.3 },
-  heroEmpty:       { backgroundColor: '#F9FAFB', alignItems: 'center', paddingVertical: 40, borderWidth: 1.5, borderColor: '#E5E7EB', borderStyle: 'dashed' },
+  // ── Hero (video-player style) ────────────────────────
+  heroCard:        { marginHorizontal: 16, marginTop: 14, borderRadius: 18, overflow: 'hidden', elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.18, shadowRadius: 8, aspectRatio: 16/10 },
+  heroBg:          { flex: 1, backgroundColor: '#1E1B4B', padding: 14, justifyContent: 'space-between' },
+  heroTopRow:      { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  livePill:        { backgroundColor: '#EF4444', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
+  livePillText:    { color: '#fff', fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
+  upcomingPill:    { backgroundColor: '#7C3AED', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
+  upcomingPillText:{ color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+  watcherPill:     { backgroundColor: 'rgba(255,255,255,0.18)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  watcherPillText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  heroCenter:      { alignItems: 'center', justifyContent: 'center', flex: 1, paddingHorizontal: 8 },
+  heroTitleBig:    { color: '#fff', fontSize: 22, fontWeight: '800', textAlign: 'center', lineHeight: 28 },
+  heroSubBig:      { color: '#C4B5FD', fontSize: 13, fontWeight: '600', marginTop: 6, textAlign: 'center' },
+  heroControls:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6 },
+  heroControlsLeft:{ flexDirection: 'row', alignItems: 'center', gap: 14 },
+  heroControlsRight:{ flexDirection: 'row', alignItems: 'center', gap: 14 },
+  ctrlIcon:        { fontSize: 16, color: '#fff' },
+  heroLiveDotRow:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  heroLiveDot:     { width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444' },
+  heroLiveDotText: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
+  heroEmpty:       { backgroundColor: '#F9FAFB', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#E5E7EB', borderStyle: 'dashed' },
   heroEmptyIcon:   { fontSize: 40, marginBottom: 10 },
   heroEmptyTitle:  { fontSize: 16, fontWeight: '700', color: '#374151', marginBottom: 4 },
   heroEmptySub:    { fontSize: 13, color: '#9CA3AF', textAlign: 'center', paddingHorizontal: 24 },
+
+  // ── Rich Upcoming-Class Card ─────────────────────────
+  classCard:       { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', marginHorizontal: 16, marginBottom: 10, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 12, gap: 10, borderWidth: 1, borderColor: '#F3F4F6' },
+  dayChip:         { width: 50, alignItems: 'center', justifyContent: 'center' },
+  dayChipName:     { fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
+  dayChipDate:     { fontSize: 22, fontWeight: '900', marginTop: 1, lineHeight: 26 },
+  dayChipMonth:    { fontSize: 11, fontWeight: '700' },
+  subjectIconBox:  { width: 46, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  subjectIconText: { fontSize: 18, fontWeight: '900' },
+  classMeta:       { flex: 1, gap: 3 },
+  classTitle:      { fontSize: 14, fontWeight: '800', color: '#111827' },
+  classProf:       { fontSize: 11, color: '#6B7280' },
+  categoryTag:     { alignSelf: 'flex-start', backgroundColor: '#EDE9FE', borderRadius: 5, paddingHorizontal: 7, paddingVertical: 2, marginTop: 3 },
+  categoryTagText: { fontSize: 9, fontWeight: '700', color: '#7C3AED' },
+  classRight:      { alignItems: 'flex-end', gap: 2, minWidth: 80 },
+  timeRow:         { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  timeIcon:        { fontSize: 11 },
+  timeText:        { fontSize: 12, fontWeight: '700', color: '#111827' },
+  durationText:    { fontSize: 10, color: '#9CA3AF', fontWeight: '600' },
+  remindBtn:       { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 6 },
+  remindBell:      { fontSize: 12 },
+  remindText:      { fontSize: 10, fontWeight: '700' },
 });
 
 export default LiveSessionScreen;

@@ -7,7 +7,7 @@ const notificationSchema = new mongoose.Schema(
     message:     { type: String, required: true },
     type:        {
       type: String,
-      enum: ['session_reminder', 'admin_broadcast', 'system', 'daily_reminder', 'new_content', 'achievement', 'points', 'assessment'],
+      enum: ['session_reminder', 'admin_broadcast', 'system', 'daily_reminder', 'new_content', 'achievement', 'points', 'assessment', 'shorts_approved', 'shorts_rejected'],
       default: 'system',
     },
     isRead:      { type: Boolean, default: false, index: true },

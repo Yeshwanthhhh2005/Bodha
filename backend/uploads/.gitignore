@@ -1,0 +1,3 @@
+# Uploaded user content — ignored from git, served via /uploads/* at runtime
+*
+!.gitignore

@@ -8,6 +8,7 @@ import Notifications from './pages/Notifications.jsx';
 import Users from './pages/Users.jsx';
 import ClassSchedule from './pages/ClassSchedule.jsx';
 import Leaderboard from './pages/Leaderboard.jsx';
+import Shorts from './pages/Shorts.jsx';
 import Layout from './components/Layout.jsx';
 
 export const AuthContext = createContext(null);
@@ -46,6 +47,7 @@ export default function App() {
             <Route path="users" element={<Users />} />
             <Route path="class-schedule" element={<ClassSchedule />} />
             <Route path="leaderboard" element={<Leaderboard />} />
+            <Route path="shorts" element={<Shorts />} />
           </Route>
         </Routes>
       </BrowserRouter>

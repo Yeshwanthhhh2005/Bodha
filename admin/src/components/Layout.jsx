@@ -7,6 +7,7 @@ const NAV = [
   { to: '/sessions', label: 'Sessions', icon: '🎥' },
   { to: '/class-schedule', label: 'Class Schedule', icon: '📅' },
   { to: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
+  { to: '/shorts', label: '30 Sec Shorts', icon: '🎞' },
   { to: '/users', label: 'Users', icon: '👥' },
   { to: '/notifications', label: 'Notifications', icon: '🔔' },
 ];

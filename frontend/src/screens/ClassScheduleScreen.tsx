@@ -217,6 +217,16 @@ export default function ClassScheduleScreen({ navigation }: Props) {
 
       {/* ── Header ────────────────────────────────────────── */}
       <View style={s.header}>
+        {navigation?.canGoBack?.() && (
+          <TouchableOpacity
+            style={s.headerBackBtn}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="chevron-back" size={22} color="#111827" />
+          </TouchableOpacity>
+        )}
         <View style={s.headerIconBox}>
           <Ionicons name="calendar" size={22} color="#7C3AED" />
         </View>
@@ -402,7 +412,7 @@ export default function ClassScheduleScreen({ navigation }: Props) {
                   ) : isToday ? (
                     <>
                       <View style={s.liveBadge}><Text style={s.liveBadgeText}>Live Today</Text></View>
-                      <TouchableOpacity style={s.joinBtn} onPress={() => navigation.navigate('LiveSessions')} activeOpacity={0.8}>
+                      <TouchableOpacity style={s.joinBtn} onPress={() => navigation.navigate('LiveSessionsRoot')} activeOpacity={0.8}>
                         <Ionicons name="videocam" size={12} color="#7C3AED" style={{ marginRight: 4 }} />
                         <Text style={s.joinBtnText}>Join Live</Text>
                       </TouchableOpacity>
@@ -449,6 +459,7 @@ const s = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   header:        { backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 14, gap: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  headerBackBtn: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 4 },
   headerIconBox: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center' },
   headerTextWrap:{ flex: 1 },
   headerTitle:   { fontSize: 19, fontWeight: '800', color: '#111827' },

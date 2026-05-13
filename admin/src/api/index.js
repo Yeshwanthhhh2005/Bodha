@@ -11,9 +11,18 @@ api.interceptors.request.use((config) => {
 });
 
 // Backend wraps all responses as { success, message, data }. Unwrap automatically.
+// On 401 (stale/invalid JWT — e.g. backend restarted with a new JWT_SECRET) clear
+// the saved token and bounce to /login so the next request gets a fresh one.
 api.interceptors.response.use(
   (res) => (res.data?.data !== undefined ? res.data.data : res.data),
-  (err) => Promise.reject(err.response?.data || err)
+  (err) => {
+    if (err.response?.status === 401) {
+      const onLoginPage = window.location.pathname.startsWith('/login');
+      try { localStorage.removeItem('adminToken'); localStorage.removeItem('adminUser'); } catch {}
+      if (!onLoginPage) window.location.assign('/login');
+    }
+    return Promise.reject(err.response?.data || err);
+  }
 );
 
 export const authAPI = {
@@ -97,6 +106,17 @@ export const leaderboardAdminAPI = {
 export const courseConfigAPI = {
   get:    ()     => api.get('/course-config/admin'),
   update: (data) => api.put('/course-config/admin', data),
+};
+
+// ─── NPT-020: 30 Second Shorts (admin moderation) ────────────────────────────
+export const shortsAdminAPI = {
+  list:           (status = 'pending') => api.get(`/shorts/admin?status=${status}`),
+  get:            (id)                 => api.get(`/shorts/admin/${id}`),
+  approve:        (id)                 => api.patch(`/shorts/admin/${id}/approve`),
+  reject:         (id, reason)         => api.patch(`/shorts/admin/${id}/reject`, { reason }),
+  toggleFeature:  (id)                 => api.patch(`/shorts/admin/${id}/feature`),
+  delete:         (id)                 => api.delete(`/shorts/admin/${id}`),
+  stats:          ()                   => api.get('/shorts/admin/stats'),
 };
 
 export default api;

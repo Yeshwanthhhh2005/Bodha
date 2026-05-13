@@ -11,14 +11,29 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.bodha.lms"
+      "bundleIdentifier": "com.bodha.lms",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Allow Bodha LMS to access your camera so you can record 30-second shorts.",
+        "NSMicrophoneUsageDescription": "Allow Bodha LMS to record audio with your videos.",
+        "NSPhotoLibraryUsageDescription": "Allow Bodha LMS to pick a video from your gallery to upload as a short."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#4C1D95"
       },
-      "package": "com.bodha.lms"
+      "package": "com.bodha.lms",
+      "permissions": ["CAMERA", "RECORD_AUDIO", "READ_EXTERNAL_STORAGE", "READ_MEDIA_VIDEO"]
     },
-    "plugins": []
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Bodha LMS to pick a video from your gallery to upload as a short.",
+          "cameraPermission": "Allow Bodha LMS to access your camera so you can record 30-second shorts.",
+          "microphonePermission": "Allow Bodha LMS to record audio with your videos."
+        }
+      ]
+    ]
   }
 }

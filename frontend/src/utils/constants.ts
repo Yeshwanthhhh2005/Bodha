@@ -1,5 +1,15 @@
 export const API_BASE_URL = 'http://10.23.19.235:5000/api';
 export const SOCKET_URL = 'http://10.23.19.235:5000';
+/** Base for static files (videos, thumbnails) served from /uploads/*. */
+export const MEDIA_BASE_URL = 'http://10.23.19.235:5000';
+
+/** Resolve a server-relative path like "/uploads/shorts/abc.mp4" into an
+ *  absolute URL the device can fetch. Leaves already-absolute URLs untouched. */
+export const resolveMediaUrl = (urlOrPath: string | null | undefined): string => {
+  if (!urlOrPath) return '';
+  if (/^https?:\/\//i.test(urlOrPath)) return urlOrPath;
+  return `${MEDIA_BASE_URL}${urlOrPath.startsWith('/') ? '' : '/'}${urlOrPath}`;
+};
 
 export const SESSION_STATES = {
   UPCOMING: 'UPCOMING',

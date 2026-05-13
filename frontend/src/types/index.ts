@@ -51,6 +51,10 @@ export interface AppNotification {
 export type RootStackParamList = {
   Login: undefined;
   Main: undefined;
+  ShortsRoot: undefined;
+  LiveSessionsRoot: undefined;
+  ClassScheduleRoot: undefined;
+  AchievementsRoot: undefined;
 };
 
 export type LiveSessionsStackParamList = {

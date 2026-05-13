@@ -84,4 +84,29 @@ export const playerAPI = {
   getToken: (sessionId: string) => api.get(`/player/${sessionId}/token`),
 };
 
+// ─── NPT-020: 30 Second Shorts ────────────────────────────────────────────────
+export const shortsAPI = {
+  // Feed (only approved videos)
+  feed: (section: 'trainer' | 'student' = 'trainer', topic?: string, page = 1) =>
+    api.get(`/shorts/feed?section=${section}${topic ? `&topic=${encodeURIComponent(topic)}` : ''}&page=${page}`),
+  trending:    () => api.get('/shorts/trending'),
+  topCreators: () => api.get('/shorts/top-creators'),
+
+  // My uploads
+  myShorts: () => api.get('/shorts/mine'),
+
+  // Upload (multipart) — `payload` is a FormData with: video file, title, topic, description
+  upload: (payload: FormData) =>
+    api.post('/shorts/upload', payload, { headers: { 'Content-Type': 'multipart/form-data' } }),
+
+  // Engagement
+  like:  (id: string) => api.post(`/shorts/${id}/like`),
+  view:  (id: string) => api.post(`/shorts/${id}/view`),
+  share: (id: string) => api.post(`/shorts/${id}/share`),
+
+  // Creator follow
+  follow:   (creatorId: string) => api.post(`/shorts/creators/${creatorId}/follow`),
+  unfollow: (creatorId: string) => api.delete(`/shorts/creators/${creatorId}/follow`),
+};
+
 export default api;

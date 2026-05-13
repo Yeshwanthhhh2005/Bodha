@@ -26,6 +26,7 @@ import ShortsFeedScreen from './src/screens/ShortsFeedScreen';
 import ShortsPlayerScreen from './src/screens/ShortsPlayerScreen';
 import UploadShortScreen from './src/screens/UploadShortScreen';
 import TopCreatorsScreen from './src/screens/TopCreatorsScreen';
+import ChatScreen from './src/screens/ChatScreen';
 import { NotificationProvider, useNotification } from './src/context/NotificationContext';
 import { connectSocket } from './src/services/socket';
 import type { RootStackParamList, LiveSessionsStackParamList } from './src/types';
@@ -342,6 +343,11 @@ const AppInner: React.FC<AppInnerProps> = ({ initialRoute }) => {
           name="AchievementsRoot"
           component={LeaderboardStack as React.ComponentType<object>}
           options={{ animation: 'slide_from_right' }}
+        />
+        <RootStack.Screen
+          name="Chat"
+          component={ChatScreen as React.ComponentType<object>}
+          options={{ animation: 'slide_from_bottom' }}
         />
       </RootStack.Navigator>
     </NavigationContainer>

@@ -9,6 +9,8 @@ import Users from './pages/Users.jsx';
 import ClassSchedule from './pages/ClassSchedule.jsx';
 import Leaderboard from './pages/Leaderboard.jsx';
 import Shorts from './pages/Shorts.jsx';
+import Chat from './pages/Chat.jsx';
+import Puzzles from './pages/Puzzles.jsx';
 import Layout from './components/Layout.jsx';
 
 export const AuthContext = createContext(null);
@@ -48,6 +50,8 @@ export default function App() {
             <Route path="class-schedule" element={<ClassSchedule />} />
             <Route path="leaderboard" element={<Leaderboard />} />
             <Route path="shorts" element={<Shorts />} />
+            <Route path="chat" element={<Chat />} />
+            <Route path="puzzles" element={<Puzzles />} />
           </Route>
         </Routes>
       </BrowserRouter>

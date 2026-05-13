@@ -26,7 +26,8 @@ import ShortsFeedScreen from './src/screens/ShortsFeedScreen';
 import ShortsPlayerScreen from './src/screens/ShortsPlayerScreen';
 import UploadShortScreen from './src/screens/UploadShortScreen';
 import TopCreatorsScreen from './src/screens/TopCreatorsScreen';
-import ChatScreen from './src/screens/ChatScreen';
+import MindTwisterScreen from './src/screens/MindTwisterScreen';
+import ChatBubble from './src/components/ChatBubble';
 import { NotificationProvider, useNotification } from './src/context/NotificationContext';
 import { connectSocket } from './src/services/socket';
 import type { RootStackParamList, LiveSessionsStackParamList } from './src/types';
@@ -319,37 +320,42 @@ const AppInner: React.FC<AppInnerProps> = ({ initialRoute }) => {
 
   return (
     <NavigationContainer ref={navigationRef}>
-      <RootStack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
-        <RootStack.Screen name="Login" component={LoginScreen} />
-        <RootStack.Screen name="Main" component={TabNavigator} />
+      <View style={{ flex: 1 }}>
+        <RootStack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
+          <RootStack.Screen name="Login" component={LoginScreen} />
+          <RootStack.Screen name="Main" component={TabNavigator} />
 
-        {/* Feature screens accessible from Home cards (overlay above tabs) */}
-        <RootStack.Screen
-          name="ShortsRoot"
-          component={ShortsNavigator as React.ComponentType<object>}
-          options={{ animation: 'slide_from_bottom' }}
-        />
-        <RootStack.Screen
-          name="LiveSessionsRoot"
-          component={LiveSessionsStack as React.ComponentType<object>}
-          options={{ animation: 'slide_from_right' }}
-        />
-        <RootStack.Screen
-          name="ClassScheduleRoot"
-          component={ClassScheduleScreen as React.ComponentType<object>}
-          options={{ animation: 'slide_from_right' }}
-        />
-        <RootStack.Screen
-          name="AchievementsRoot"
-          component={LeaderboardStack as React.ComponentType<object>}
-          options={{ animation: 'slide_from_right' }}
-        />
-        <RootStack.Screen
-          name="Chat"
-          component={ChatScreen as React.ComponentType<object>}
-          options={{ animation: 'slide_from_bottom' }}
-        />
-      </RootStack.Navigator>
+          {/* Feature screens accessible from Home cards (overlay above tabs) */}
+          <RootStack.Screen
+            name="ShortsRoot"
+            component={ShortsNavigator as React.ComponentType<object>}
+            options={{ animation: 'slide_from_bottom' }}
+          />
+          <RootStack.Screen
+            name="LiveSessionsRoot"
+            component={LiveSessionsStack as React.ComponentType<object>}
+            options={{ animation: 'slide_from_right' }}
+          />
+          <RootStack.Screen
+            name="ClassScheduleRoot"
+            component={ClassScheduleScreen as React.ComponentType<object>}
+            options={{ animation: 'slide_from_right' }}
+          />
+          <RootStack.Screen
+            name="AchievementsRoot"
+            component={LeaderboardStack as React.ComponentType<object>}
+            options={{ animation: 'slide_from_right' }}
+          />
+          <RootStack.Screen
+            name="MindTwisterRoot"
+            component={MindTwisterScreen as React.ComponentType<object>}
+            options={{ animation: 'slide_from_right' }}
+          />
+        </RootStack.Navigator>
+
+        {/* Floating chat bubble — visible on every screen */}
+        <ChatBubble />
+      </View>
     </NavigationContainer>
   );
 };

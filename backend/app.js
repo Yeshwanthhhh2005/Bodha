@@ -17,6 +17,7 @@ const classScheduleRoutes = require('./src/routes/classSchedule.routes');
 const courseConfigRoutes  = require('./src/routes/courseConfig.routes');
 const leaderboardRoutes   = require('./src/routes/leaderboard.routes');
 const shortsRoutes        = require('./src/routes/shorts.routes');
+const puzzleRoutes        = require('./src/routes/puzzle.routes');
 
 const app = express();
 
@@ -46,6 +47,7 @@ app.use('/api/class-schedule', classScheduleRoutes);
 app.use('/api/course-config',  courseConfigRoutes);
 app.use('/api/leaderboard',    leaderboardRoutes);
 app.use('/api/shorts',         shortsRoutes);
+app.use('/api/puzzles',        puzzleRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 

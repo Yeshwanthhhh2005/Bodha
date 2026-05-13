@@ -15,7 +15,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Allow Bodha LMS to access your camera so you can record 30-second shorts.",
         "NSMicrophoneUsageDescription": "Allow Bodha LMS to record audio with your videos.",
-        "NSPhotoLibraryUsageDescription": "Allow Bodha LMS to pick a video from your gallery to upload as a short."
+        "NSPhotoLibraryUsageDescription": "Allow Bodha LMS to pick a video from your gallery to upload as a short.",
+        "NSAppTransportSecurity": { "NSAllowsArbitraryLoads": true }
       }
     },
     "android": {
@@ -23,6 +24,7 @@
         "backgroundColor": "#4C1D95"
       },
       "package": "com.bodha.lms",
+      "usesCleartextTraffic": true,
       "permissions": ["CAMERA", "RECORD_AUDIO", "READ_EXTERNAL_STORAGE", "READ_MEDIA_VIDEO"]
     },
     "plugins": [

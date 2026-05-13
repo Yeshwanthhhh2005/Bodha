@@ -109,4 +109,14 @@ export const shortsAPI = {
   unfollow: (creatorId: string) => api.delete(`/shorts/creators/${creatorId}/follow`),
 };
 
+// ─── NPT-030: Daily Puzzle / Mind Twister ─────────────────────────────────────
+export const puzzleAPI = {
+  getToday:       ()                          => api.get('/puzzles/today'),
+  getHistory:     (page = 1)                  => api.get(`/puzzles/history?page=${page}`),
+  getMyProgress:  ()                          => api.get('/puzzles/my-progress'),
+  getLeaderboard: ()                          => api.get('/puzzles/leaderboard'),
+  getPuzzle:      (id: string)                => api.get(`/puzzles/${id}`),
+  submitAnswer:   (id: string, answer: string)=> api.post(`/puzzles/${id}/submit`, { answer }),
+};
+
 export default api;

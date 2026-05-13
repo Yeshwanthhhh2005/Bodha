@@ -51,11 +51,11 @@ export interface AppNotification {
 export type RootStackParamList = {
   Login: undefined;
   Main: undefined;
-  Chat: undefined;
   ShortsRoot: undefined;
   LiveSessionsRoot: undefined;
   ClassScheduleRoot: undefined;
   AchievementsRoot: undefined;
+  MindTwisterRoot: { puzzleId: string };
 };
 
 export type LiveSessionsStackParamList = {

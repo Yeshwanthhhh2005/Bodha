@@ -1,280 +1,357 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  StatusBar,
+  StatusBar, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { puzzleAPI } from '../services/api';
 
-type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
-type MCIconName  = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-
-interface Puzzle {
-  id: string;
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface TodayPuzzle {
+  _id: string;
   title: string;
-  difficulty: 'Easy' | 'Medium' | 'Hard';
-  topic: string;
+  hint?: string;
+  releaseDate: string;
+  pointsAwarded: number;
+  maxAttempts: number;
+  myAttempts: number;
+  isSolved: boolean;
+}
+interface HistoryItem {
+  _id: string;
+  title: string;
+  releaseDate: string;
+  isSolved: boolean;
+  pointsEarned: number;
+}
+interface Progress {
+  totalSolved: number;
+  currentStreak: number;
+  totalPoints: number;
+}
+interface LeaderEntry {
+  rank: number;
+  name: string;
   points: number;
-  solvedCount: number;
-  isSolved?: boolean;
-  isNew?: boolean;
-  iconLib: 'mci' | 'ion';
-  icon: MCIconName | IoniconName;
-  bg: string;
-  accent: string;
+  solved: number;
+  isMe: boolean;
 }
 
-const DAILY: Puzzle = {
-  id: 'daily',
-  title: 'Reverse a Linked List',
-  difficulty: 'Medium',
-  topic: 'Data Structures',
-  points: 50,
-  solvedCount: 1240,
-  iconLib: 'mci',
-  icon: 'link-variant',
-  bg: '#FEF3C7',
-  accent: '#D97706',
-};
+interface Props { navigation: any }
 
-const PUZZLES: Puzzle[] = [
-  { id: 'p1', title: 'Two Sum',                 difficulty: 'Easy',   topic: 'Arrays',         points: 20, solvedCount: 4520, isSolved: true,  iconLib: 'mci', icon: 'numeric-2-circle-outline', bg: '#DCFCE7', accent: '#059669' },
-  { id: 'p2', title: 'Valid Parentheses',       difficulty: 'Easy',   topic: 'Stack',          points: 25, solvedCount: 3210, isSolved: true,  iconLib: 'mci', icon: 'code-tags-check',          bg: '#DBEAFE', accent: '#2563EB' },
-  { id: 'p3', title: 'Merge Two Sorted Lists',  difficulty: 'Easy',   topic: 'Linked List',    points: 25, solvedCount: 2890,                  iconLib: 'mci', icon: 'merge',                    bg: '#FCE7F3', accent: '#DB2777' },
-  { id: 'p4', title: 'Binary Tree Inorder',     difficulty: 'Medium', topic: 'Trees',          points: 40, solvedCount: 1840, isNew: true,     iconLib: 'mci', icon: 'file-tree-outline',        bg: '#EDE9FE', accent: '#7C3AED' },
-  { id: 'p5', title: 'Longest Substring',       difficulty: 'Medium', topic: 'Strings',        points: 40, solvedCount: 1560,                  iconLib: 'mci', icon: 'format-text',              bg: '#FED7AA', accent: '#EA580C' },
-  { id: 'p6', title: 'Word Ladder',             difficulty: 'Hard',   topic: 'Graphs',         points: 80, solvedCount: 620,                   iconLib: 'mci', icon: 'graph',                    bg: '#FEE2E2', accent: '#DC2626' },
-];
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
 
-const DIFFICULTY_META = {
-  Easy:   { color: '#059669', bg: '#DCFCE7' },
-  Medium: { color: '#D97706', bg: '#FEF3C7' },
-  Hard:   { color: '#DC2626', bg: '#FEE2E2' },
-};
+// ─── Screen ───────────────────────────────────────────────────────────────────
+export default function PuzzleScreen({ navigation }: Props) {
+  const [loading, setLoading]       = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [today, setToday]           = useState<TodayPuzzle | null>(null);
+  const [history, setHistory]       = useState<HistoryItem[]>([]);
+  const [progress, setProgress]     = useState<Progress>({ totalSolved: 0, currentStreak: 0, totalPoints: 0 });
+  const [leaders, setLeaders]       = useState<LeaderEntry[]>([]);
+  const [myRank, setMyRank]         = useState<number>(0);
 
-const FILTERS = ['All', 'Easy', 'Medium', 'Hard', 'Solved'] as const;
-type Filter = typeof FILTERS[number];
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const [todayRes, histRes, progRes, lbRes] = await Promise.allSettled([
+        puzzleAPI.getToday(),
+        puzzleAPI.getHistory(),
+        puzzleAPI.getMyProgress(),
+        puzzleAPI.getLeaderboard(),
+      ]);
+      if (todayRes.status === 'fulfilled') setToday((todayRes.value as any)?.data ?? (todayRes.value as any));
+      if (histRes.status === 'fulfilled')  setHistory((histRes.value as any)?.data ?? (histRes.value as any) ?? []);
+      if (progRes.status === 'fulfilled')  setProgress((progRes.value as any)?.data ?? (progRes.value as any) ?? progress);
+      if (lbRes.status === 'fulfilled') {
+        const d = (lbRes.value as any)?.data ?? (lbRes.value as any);
+        setLeaders(d?.leaderboard ?? []);
+        setMyRank(d?.myRank ?? 0);
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
-export default function PuzzleScreen() {
-  const [filter, setFilter] = useState<Filter>('All');
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const filtered = PUZZLES.filter((p) => {
-    if (filter === 'All') return true;
-    if (filter === 'Solved') return p.isSolved;
-    return p.difficulty === filter;
-  });
-
-  const solvedCount = PUZZLES.filter((p) => p.isSolved).length;
-  const totalPoints = PUZZLES.filter((p) => p.isSolved).reduce((sum, p) => sum + p.points, 0);
+  if (loading) {
+    return (
+      <SafeAreaView style={s.safe} edges={['top']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <View style={s.center}><ActivityIndicator size="large" color="#7C3AED" /></View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor="#4C1D95" />
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
       {/* Header */}
       <View style={s.header}>
-        <View style={s.headerIconCircle}>
-          <Ionicons name="extension-puzzle" size={22} color="#FBBF24" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={s.headerTitle}>Puzzles</Text>
-          <Text style={s.headerSub}>Solve. Earn points. Level up.</Text>
-        </View>
-        <View style={s.streakBox}>
+        <Text style={s.headerTitle}>Puzzle</Text>
+        <View style={s.streakBadge}>
           <MaterialCommunityIcons name="fire" size={14} color="#F97316" />
-          <Text style={s.streakText}>7</Text>
+          <Text style={s.streakText}>{progress.currentStreak}</Text>
         </View>
       </View>
 
       <ScrollView
-        style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor="#7C3AED" />}
       >
-        {/* Hero: Daily Challenge */}
-        <View style={s.heroWrap}>
-          <View style={s.heroCard}>
-            <View style={s.heroTopRow}>
-              <View style={s.heroBadge}>
-                <Ionicons name="calendar" size={11} color="#fff" />
-                <Text style={s.heroBadgeText}>DAILY CHALLENGE</Text>
-              </View>
-              <View style={s.heroPoints}>
-                <Ionicons name="diamond" size={11} color="#FBBF24" />
-                <Text style={s.heroPointsText}>+{DAILY.points} pts</Text>
-              </View>
+        {/* ── Hero Banner ────────────────────────────────── */}
+        <View style={s.hero}>
+          <View style={s.heroLeft}>
+            <View style={s.heroBadge}><Text style={s.heroBadgeText}>Mind Twister</Text></View>
+            <Text style={s.heroTitle}>One Brain Teaser{'\n'}<Text style={s.heroAccent}>Every Day!</Text></Text>
+            <Text style={s.heroSub}>Challenge your mind. Sharpen your thinking. Stay ahead!</Text>
+          </View>
+          <View style={s.heroRight}>
+            <View style={s.heroIconWrap}>
+              <Ionicons name="bulb" size={54} color="#A78BFA" />
             </View>
-            <Text style={s.heroTitle}>{DAILY.title}</Text>
-            <View style={s.heroMetaRow}>
-              <View style={[s.heroChip, { backgroundColor: DIFFICULTY_META[DAILY.difficulty].bg }]}>
-                <Text style={[s.heroChipText, { color: DIFFICULTY_META[DAILY.difficulty].color }]}>
-                  {DAILY.difficulty}
+          </View>
+        </View>
+
+        {/* ── Today's Mind Twister ────────────────────────── */}
+        <View style={s.section}>
+          <View style={s.sectionHead}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="calendar-outline" size={14} color="#7C3AED" />
+              <Text style={s.sectionTitle}>Today's Mind Twister</Text>
+            </View>
+            <Text style={s.sectionDate}>{fmtDate(new Date().toISOString())}</Text>
+          </View>
+
+          {today ? (
+            <View style={s.todayCard}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.todayQuestion} numberOfLines={2}>{today.title}</Text>
+              </View>
+              <View style={s.todayGift}>
+                <Ionicons name="gift" size={36} color="#F59E0B" />
+              </View>
+              <TouchableOpacity
+                style={[s.solveBtn, today.isSolved && s.solveBtnDone]}
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate('MindTwisterRoot', { puzzleId: today._id })}
+                disabled={today.isSolved}
+              >
+                <Text style={s.solveBtnText}>
+                  {today.isSolved ? '✓ Solved!' : 'Solve Now'}
                 </Text>
-              </View>
-              <Text style={s.heroMetaText}>{DAILY.topic}</Text>
-              <Text style={s.heroMetaText}>• {DAILY.solvedCount.toLocaleString()} solved</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={s.heroCta} activeOpacity={0.85}>
-              <Ionicons name="rocket" size={14} color="#fff" />
-              <Text style={s.heroCtaText}>Start Challenge</Text>
+          ) : (
+            <View style={s.noToday}>
+              <Ionicons name="calendar-outline" size={32} color="#D1D5DB" />
+              <Text style={s.noTodayText}>No puzzle today yet</Text>
+            </View>
+          )}
+        </View>
+
+        {/* ── Progress ────────────────────────────────────── */}
+        <View style={s.section}>
+          <View style={s.sectionHead}>
+            <Text style={s.sectionTitle}>Your Progress</Text>
+            <TouchableOpacity>
+              <Text style={s.viewStats}>View Stats <Ionicons name="chevron-forward" size={11} color="#7C3AED" /></Text>
             </TouchableOpacity>
           </View>
-        </View>
-
-        {/* Quick stats */}
-        <View style={s.statRow}>
-          <View style={s.statCard}>
-            <View style={[s.statIcon, { backgroundColor: '#DCFCE7' }]}>
-              <Ionicons name="checkmark-done" size={16} color="#059669" />
+          <View style={s.statsRow}>
+            <View style={s.statCell}>
+              <View style={[s.statIcon, { backgroundColor: '#EDE9FE' }]}>
+                <Ionicons name="checkmark-circle-outline" size={20} color="#7C3AED" />
+              </View>
+              <Text style={s.statVal}>{progress.totalSolved}</Text>
+              <Text style={s.statLbl}>Solved</Text>
             </View>
-            <Text style={s.statValue}>{solvedCount}</Text>
-            <Text style={s.statLabel}>Solved</Text>
-          </View>
-          <View style={s.statCard}>
-            <View style={[s.statIcon, { backgroundColor: '#FEF3C7' }]}>
-              <Ionicons name="diamond" size={16} color="#D97706" />
+            <View style={s.statCell}>
+              <View style={[s.statIcon, { backgroundColor: '#FEF3C7' }]}>
+                <MaterialCommunityIcons name="fire" size={20} color="#F97316" />
+              </View>
+              <Text style={s.statVal}>{progress.currentStreak}</Text>
+              <Text style={s.statLbl}>Day Streak</Text>
             </View>
-            <Text style={s.statValue}>{totalPoints}</Text>
-            <Text style={s.statLabel}>Points</Text>
-          </View>
-          <View style={s.statCard}>
-            <View style={[s.statIcon, { backgroundColor: '#EDE9FE' }]}>
-              <MaterialCommunityIcons name="trophy-variant" size={16} color="#7C3AED" />
+            <View style={s.statCell}>
+              <View style={[s.statIcon, { backgroundColor: '#FEF3C7' }]}>
+                <Ionicons name="trophy-outline" size={20} color="#F59E0B" />
+              </View>
+              <Text style={s.statVal}>{progress.totalPoints}</Text>
+              <Text style={s.statLbl}>Total Points</Text>
             </View>
-            <Text style={s.statValue}>#42</Text>
-            <Text style={s.statLabel}>Rank</Text>
           </View>
         </View>
 
-        {/* Filters */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={s.filterScroll}
-          contentContainerStyle={s.filterContent}
-        >
-          {FILTERS.map((f) => {
-            const active = filter === f;
-            return (
-              <TouchableOpacity
-                key={f}
-                style={[s.filterChip, active && s.filterChipActive]}
-                onPress={() => setFilter(f)}
-                activeOpacity={0.85}
-              >
-                <Text style={[s.filterText, active && { color: '#fff' }]}>{f}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* Puzzle list */}
-        <View style={{ paddingHorizontal: 16, gap: 10 }}>
-          <Text style={s.sectionTitle}>All Puzzles</Text>
-          {filtered.length === 0 ? (
-            <View style={s.empty}>
-              <MaterialCommunityIcons name="puzzle-outline" size={48} color="#D1D5DB" />
-              <Text style={s.emptyTitle}>No puzzles in this filter</Text>
+        {/* ── Past Mind Twisters ───────────────────────────── */}
+        {history.length > 0 && (
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>Past Mind Twisters</Text>
+            <View style={{ gap: 2, marginTop: 8 }}>
+              {history.slice(0, 5).map((h) => (
+                <TouchableOpacity
+                  key={h._id}
+                  style={s.histRow}
+                  activeOpacity={0.85}
+                  onPress={() => navigation.navigate('MindTwisterRoot', { puzzleId: h._id })}
+                >
+                  <View style={[s.histIcon, { backgroundColor: h.isSolved ? '#DCFCE7' : '#F3F4F6' }]}>
+                    <Ionicons
+                      name={h.isSolved ? 'checkmark-circle' : 'lock-closed-outline'}
+                      size={18}
+                      color={h.isSolved ? '#059669' : '#9CA3AF'}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.histDate}>{fmtDate(h.releaseDate)}</Text>
+                    <Text style={s.histQ} numberOfLines={1}>{h.isSolved ? h.title : '??????'}</Text>
+                  </View>
+                  {h.isSolved ? (
+                    <Text style={s.histPts}>+{h.pointsEarned}</Text>
+                  ) : (
+                    <Ionicons name="lock-closed-outline" size={16} color="#D1D5DB" />
+                  )}
+                  {h.isSolved && <Ionicons name="chevron-forward" size={16} color="#D1D5DB" />}
+                </TouchableOpacity>
+              ))}
             </View>
-          ) : filtered.map((p) => {
-            const diff = DIFFICULTY_META[p.difficulty];
-            return (
-              <TouchableOpacity key={p.id} style={s.row} activeOpacity={0.85}>
-                <View style={[s.rowIcon, { backgroundColor: p.bg }]}>
-                  {p.iconLib === 'mci'
-                    ? <MaterialCommunityIcons name={p.icon as MCIconName} size={22} color={p.accent} />
-                    : <Ionicons name={p.icon as IoniconName} size={22} color={p.accent} />}
+          </View>
+        )}
+
+        {/* ── Leaderboard ─────────────────────────────────── */}
+        {leaders.length > 0 && (
+          <View style={s.section}>
+            <View style={s.sectionHead}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="trophy" size={14} color="#F59E0B" />
+                <Text style={s.sectionTitle}>Top Solvers</Text>
+              </View>
+              <Text style={s.viewStats}>This Month</Text>
+            </View>
+            {leaders.slice(0, 3).map((l) => (
+              <View key={l.rank} style={[s.lbRow, l.isMe && s.lbRowMe]}>
+                <Text style={[s.lbRank, l.rank <= 3 && s.lbRankTop]}>{l.rank}</Text>
+                <View style={s.lbAvatar}>
+                  <Text style={s.lbAvatarText}>{l.name[0]}</Text>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={s.rowTitle}>{p.title}</Text>
-                    {p.isNew && (
-                      <View style={s.newBadge}><Text style={s.newBadgeText}>NEW</Text></View>
-                    )}
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-                    <View style={[s.diffChip, { backgroundColor: diff.bg }]}>
-                      <Text style={[s.diffChipText, { color: diff.color }]}>{p.difficulty}</Text>
-                    </View>
-                    <Text style={s.rowMeta}>{p.topic}</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                      <Ionicons name="diamond-outline" size={11} color="#9CA3AF" />
-                      <Text style={s.rowMeta}>{p.points}</Text>
-                    </View>
-                  </View>
+                <Text style={[s.lbName, l.isMe && { color: '#7C3AED', fontWeight: '800' }]}>
+                  {l.isMe ? 'You' : l.name}
+                </Text>
+                <Text style={s.lbPts}>{l.points} Pts</Text>
+              </View>
+            ))}
+            {myRank > 3 && (
+              <View style={[s.lbRow, s.lbRowMe]}>
+                <Text style={s.lbRank}>{myRank}</Text>
+                <View style={[s.lbAvatar, { backgroundColor: '#7C3AED' }]}>
+                  <Text style={s.lbAvatarText}>Y</Text>
                 </View>
-                {p.isSolved ? (
-                  <View style={s.solvedBadge}>
-                    <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                  </View>
-                ) : (
-                  <Ionicons name="chevron-forward" size={20} color="#D1D5DB" />
-                )}
-              </TouchableOpacity>
-            );
-          })}
+                <Text style={[s.lbName, { color: '#7C3AED', fontWeight: '800' }]}>You</Text>
+                <Text style={s.lbPts}>{progress.totalPoints} Pts</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ── Streak Banner ───────────────────────────────── */}
+        <View style={s.streakBanner}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.streakBannerTitle}>Keep the Streak Alive! 🔥</Text>
+            <Text style={s.streakBannerSub}>Solve tomorrow's Mind Twister{'\n'}and keep your streak going.</Text>
+          </View>
+          <View style={s.streakBannerIcon}>
+            <MaterialCommunityIcons name="calendar-check" size={40} color="#A78BFA" />
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F9FAFB' },
+  safe:   { flex: 1, backgroundColor: '#F5F3FF' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   header: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#4C1D95',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 14, backgroundColor: '#fff',
+    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
   },
-  headerIconCircle: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle:      { fontSize: 18, fontWeight: '800', color: '#fff' },
-  headerSub:        { fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
-  streakBox:        { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 },
-  streakText:       { fontSize: 13, fontWeight: '800', color: '#fff' },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: '#1E1B4B' },
+  streakBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FEF3C7', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5 },
+  streakText:  { fontSize: 13, fontWeight: '800', color: '#92400E' },
 
-  heroWrap: { padding: 16, paddingTop: 18, paddingBottom: 8 },
-  heroCard: { backgroundColor: '#fff', borderRadius: 18, padding: 18, borderWidth: 1, borderColor: '#F3F4F6', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
-  heroTopRow:   { flexDirection: 'row', justifyContent: 'space-between' },
-  heroBadge:    { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#7C3AED', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
-  heroBadgeText:{ fontSize: 9, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
-  heroPoints:   { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FEF3C7', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
-  heroPointsText:{ fontSize: 10, fontWeight: '800', color: '#D97706' },
-  heroTitle:    { fontSize: 18, fontWeight: '800', color: '#111827', marginTop: 12 },
-  heroMetaRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' },
-  heroChip:     { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  heroChipText: { fontSize: 10, fontWeight: '800' },
-  heroMetaText: { fontSize: 11, color: '#6B7280', fontWeight: '600' },
-  heroCta:      { marginTop: 14, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#7C3AED', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
-  heroCtaText:  { fontSize: 12, fontWeight: '800', color: '#fff' },
-
-  statRow: { paddingHorizontal: 16, marginTop: 6, flexDirection: 'row', gap: 8 },
-  statCard:  { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#F3F4F6' },
-  statIcon:  { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
-  statValue: { fontSize: 16, fontWeight: '800', color: '#111827' },
-  statLabel: { fontSize: 10, color: '#9CA3AF', marginTop: 2, fontWeight: '600' },
-
-  filterScroll:  { maxHeight: 50, marginTop: 16 },
-  filterContent: { paddingHorizontal: 16, paddingVertical: 6, gap: 8, alignItems: 'center' },
-  filterChip:        { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB' },
-  filterChipActive:  { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
-  filterText:        { fontSize: 11, fontWeight: '700', color: '#374151' },
-
-  sectionTitle: { fontSize: 13, fontWeight: '800', color: '#374151', marginBottom: 4 },
-
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    padding: 12, backgroundColor: '#fff', borderRadius: 12,
-    borderWidth: 1, borderColor: '#F3F4F6',
+  // Hero
+  hero: {
+    margin: 16, borderRadius: 20, padding: 20,
+    backgroundColor: '#1E1B4B',
+    flexDirection: 'row', alignItems: 'center',
   },
-  rowIcon:    { width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  rowTitle:   { fontSize: 13, fontWeight: '800', color: '#111827' },
-  rowMeta:    { fontSize: 11, color: '#6B7280', fontWeight: '600' },
-  diffChip:    { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  diffChipText:{ fontSize: 10, fontWeight: '800' },
-  newBadge:    { backgroundColor: '#EF4444', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 },
-  newBadgeText:{ fontSize: 8, color: '#fff', fontWeight: '800', letterSpacing: 0.3 },
-  solvedBadge: { },
+  heroLeft:      { flex: 1, paddingRight: 12 },
+  heroBadge:     { alignSelf: 'flex-start', backgroundColor: '#4C1D95', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5, marginBottom: 10 },
+  heroBadgeText: { fontSize: 12, fontWeight: '700', color: '#C4B5FD' },
+  heroTitle:     { fontSize: 22, fontWeight: '900', color: '#fff', lineHeight: 28 },
+  heroAccent:    { color: '#A78BFA' },
+  heroSub:       { fontSize: 12, color: 'rgba(255,255,255,0.65)', marginTop: 10, lineHeight: 17 },
+  heroRight:     { },
+  heroIconWrap:  { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(167,139,250,0.15)', alignItems: 'center', justifyContent: 'center' },
 
-  empty: { alignItems: 'center', padding: 30 },
-  emptyTitle: { fontSize: 13, fontWeight: '700', color: '#374151', marginTop: 10 },
+  // Sections
+  section: { marginHorizontal: 16, marginBottom: 16 },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  sectionTitle: { fontSize: 14, fontWeight: '800', color: '#1E1B4B' },
+  sectionDate:  { fontSize: 12, color: '#9CA3AF' },
+  viewStats:    { fontSize: 12, fontWeight: '700', color: '#7C3AED' },
+
+  // Today card
+  todayCard: { backgroundColor: '#fff', borderRadius: 14, padding: 16, flexDirection: 'column', borderWidth: 1, borderColor: '#EDE9FE' },
+  todayQuestion: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 12 },
+  todayGift:  { alignSelf: 'flex-end', marginBottom: 12, marginTop: -20 },
+  solveBtn:   { backgroundColor: '#7C3AED', borderRadius: 10, paddingVertical: 13, alignItems: 'center' },
+  solveBtnDone: { backgroundColor: '#059669' },
+  solveBtnText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+  noToday:    { alignItems: 'center', padding: 24, backgroundColor: '#fff', borderRadius: 14 },
+  noTodayText:{ fontSize: 13, color: '#9CA3AF', marginTop: 8 },
+
+  // Stats
+  statsRow: { flexDirection: 'row', gap: 10 },
+  statCell: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#EDE9FE' },
+  statIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  statVal:  { fontSize: 20, fontWeight: '900', color: '#1E1B4B' },
+  statLbl:  { fontSize: 10, color: '#9CA3AF', fontWeight: '600', marginTop: 2 },
+
+  // History
+  histRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  histIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  histDate: { fontSize: 10, color: '#9CA3AF', fontWeight: '600' },
+  histQ:    { fontSize: 13, fontWeight: '700', color: '#111827', marginTop: 2 },
+  histPts:  { fontSize: 13, fontWeight: '800', color: '#059669' },
+
+  // Leaderboard
+  lbRow:      { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  lbRowMe:    { backgroundColor: '#F5F3FF', borderRadius: 10, paddingHorizontal: 8 },
+  lbRank:     { fontSize: 13, fontWeight: '800', color: '#9CA3AF', width: 20 },
+  lbRankTop:  { color: '#F59E0B' },
+  lbAvatar:   { width: 34, height: 34, borderRadius: 17, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center' },
+  lbAvatarText: { fontSize: 13, fontWeight: '800', color: '#7C3AED' },
+  lbName:     { flex: 1, fontSize: 13, fontWeight: '700', color: '#111827' },
+  lbPts:      { fontSize: 13, fontWeight: '800', color: '#7C3AED' },
+
+  // Streak banner
+  streakBanner: {
+    marginHorizontal: 16, borderRadius: 18, padding: 20, marginBottom: 8,
+    backgroundColor: '#4C1D95', flexDirection: 'row', alignItems: 'center',
+  },
+  streakBannerTitle: { fontSize: 16, fontWeight: '800', color: '#fff', marginBottom: 6 },
+  streakBannerSub:   { fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 17 },
+  streakBannerIcon:  { marginLeft: 12 },
 });

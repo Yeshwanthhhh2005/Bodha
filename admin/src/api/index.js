@@ -119,4 +119,15 @@ export const shortsAdminAPI = {
   stats:          ()                   => api.get('/shorts/admin/stats'),
 };
 
+// ─── NPT-030: Daily Puzzle / Mind Twister (admin) ────────────────────────────
+export const puzzleAdminAPI = {
+  list:         (page = 1)    => api.get(`/puzzles/admin/list?page=${page}`),
+  stats:        ()            => api.get('/puzzles/admin/stats'),
+  create:       (data)        => api.post('/puzzles/admin/create', data),
+  update:       (id, data)    => api.patch(`/puzzles/admin/${id}`, data),
+  delete:       (id)          => api.delete(`/puzzles/admin/${id}`),
+  toggleStatus: (id)          => api.patch(`/puzzles/admin/${id}/toggle`),
+  attempts:     (id)          => api.get(`/puzzles/admin/${id}/attempts`),
+};
+
 export default api;

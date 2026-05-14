@@ -119,4 +119,11 @@ export const puzzleAPI = {
   submitAnswer:   (id: string, answer: string)=> api.post(`/puzzles/${id}/submit`, { answer }),
 };
 
+// ─── NPT-027: AI Help Assistant ───────────────────────────────────────────────
+export const aiAssistantAPI = {
+  send:    (content: string) => api.post('/ai/messages', { content }),
+  history: ()                => api.get('/ai/history'),
+  clear:   ()                => api.delete('/ai/history'),
+};
+
 export default api;

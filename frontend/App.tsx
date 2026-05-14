@@ -27,7 +27,7 @@ import ShortsPlayerScreen from './src/screens/ShortsPlayerScreen';
 import UploadShortScreen from './src/screens/UploadShortScreen';
 import TopCreatorsScreen from './src/screens/TopCreatorsScreen';
 import MindTwisterScreen from './src/screens/MindTwisterScreen';
-import ChatBubble from './src/components/ChatBubble';
+import PuzzleProgressScreen from './src/screens/PuzzleProgressScreen';
 import { NotificationProvider, useNotification } from './src/context/NotificationContext';
 import { connectSocket } from './src/services/socket';
 import type { RootStackParamList, LiveSessionsStackParamList } from './src/types';
@@ -351,10 +351,12 @@ const AppInner: React.FC<AppInnerProps> = ({ initialRoute }) => {
             component={MindTwisterScreen as React.ComponentType<object>}
             options={{ animation: 'slide_from_right' }}
           />
+          <RootStack.Screen
+            name="PuzzleProgressRoot"
+            component={PuzzleProgressScreen as React.ComponentType<object>}
+            options={{ animation: 'slide_from_right' }}
+          />
         </RootStack.Navigator>
-
-        {/* Floating chat bubble — visible on every screen */}
-        <ChatBubble />
       </View>
     </NavigationContainer>
   );

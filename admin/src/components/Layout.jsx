@@ -9,7 +9,6 @@ const NAV = [
   { to: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
   { to: '/shorts', label: '30 Sec Shorts', icon: '🎞' },
   { to: '/puzzles', label: 'Mind Twister', icon: '🧩' },
-  { to: '/chat', label: 'AI Chatbot', icon: '🤖' },
   { to: '/users', label: 'Users', icon: '👥' },
   { to: '/notifications', label: 'Notifications', icon: '🔔' },
 ];

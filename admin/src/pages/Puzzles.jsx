@@ -22,8 +22,8 @@ export default function Puzzles() {
   const [attemptsModal, setAttemptsModal] = useState(null);
   const [attempts, setAttempts] = useState([]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const [pRes, sRes] = await Promise.allSettled([
         puzzleAdminAPI.list(),
@@ -32,11 +32,19 @@ export default function Puzzles() {
       if (pRes.status === 'fulfilled') setPuzzles(pRes.value?.puzzles ?? pRes.value ?? []);
       if (sRes.status === 'fulfilled') setStats(sRes.value);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // Initial load + poll stats every 8s so attempts from the mobile app
+  // show up live without needing a manual refresh.
+  useEffect(() => {
+    load();
+    const id = setInterval(() => load({ silent: true }), 8000);
+    const onFocus = () => load({ silent: true });
+    window.addEventListener('focus', onFocus);
+    return () => { clearInterval(id); window.removeEventListener('focus', onFocus); };
+  }, [load]);
 
   const openCreate = () => { setForm(EMPTY_FORM); setModal('create'); };
   const openEdit   = (p) => {

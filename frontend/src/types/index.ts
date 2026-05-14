@@ -56,6 +56,7 @@ export type RootStackParamList = {
   ClassScheduleRoot: undefined;
   AchievementsRoot: undefined;
   MindTwisterRoot: { puzzleId: string };
+  PuzzleProgressRoot: undefined;
 };
 
 export type LiveSessionsStackParamList = {

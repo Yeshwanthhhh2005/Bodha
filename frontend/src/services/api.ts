@@ -84,4 +84,48 @@ export const playerAPI = {
   getToken: (sessionId: string) => api.get(`/player/${sessionId}/token`),
 };
 
+interface ShortUploadPayload {
+  title: string;
+  topic: string;
+  description?: string;
+  bgTop?: string;
+  bgBot?: string;
+  videoUri?: string;
+  videoName?: string;
+  videoMime?: string;
+  durationSec?: number;
+}
+
+export const shortsAPI = {
+  trending:    (limit = 10) => api.get(`/shorts/trending?limit=${limit}`),
+  trainer:     (topic = 'All') => api.get(`/shorts/trainer?topic=${encodeURIComponent(topic)}`),
+  student:     (topic = 'All') => api.get(`/shorts/student?topic=${encodeURIComponent(topic)}`),
+  feed:        (sort: 'recent' | 'popular' = 'recent') => api.get(`/shorts/feed?sort=${sort}`),
+  topCreators: (limit = 10) => api.get(`/shorts/creators/top?limit=${limit}`),
+  myUploads:   () => api.get('/shorts/my-uploads'),
+  like:        (id: string) => api.post(`/shorts/${id}/like`),
+  view:        (id: string) => api.post(`/shorts/${id}/view`),
+  upload: (data: ShortUploadPayload) => {
+    const form = new FormData();
+    form.append('title', data.title);
+    form.append('topic', data.topic);
+    if (data.description) form.append('description', data.description);
+    if (data.bgTop) form.append('bgTop', data.bgTop);
+    if (data.bgBot) form.append('bgBot', data.bgBot);
+    if (typeof data.durationSec === 'number') form.append('duration', String(data.durationSec));
+    if (data.videoUri) {
+      // React Native FormData accepts { uri, name, type }
+      form.append('video', {
+        uri: data.videoUri,
+        name: data.videoName || 'short.mp4',
+        type: data.videoMime || 'video/mp4',
+      } as any);
+    }
+    return api.post('/shorts/upload', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      transformRequest: (d) => d, // let RN handle multipart boundary
+    });
+  },
+};
+
 export default api;

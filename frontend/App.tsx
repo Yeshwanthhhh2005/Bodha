@@ -17,6 +17,13 @@ import NotificationsScreen from './src/screens/NotificationsScreen';
 import ClassScheduleScreen from './src/screens/ClassScheduleScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
 import ChallengesScreen from './src/screens/ChallengesScreen';
+import ShortsScreen from './src/screens/ShortsScreen';
+import ShortsListScreen from './src/screens/ShortsListScreen';
+import TopCreatorsScreen from './src/screens/TopCreatorsScreen';
+import UploadShortScreen from './src/screens/UploadShortScreen';
+import MyUploadsScreen from './src/screens/MyUploadsScreen';
+import ShortsFeedScreen from './src/screens/ShortsFeedScreen';
+import HomeScreen from './src/screens/HomeScreen';
 import { NotificationProvider, useNotification } from './src/context/NotificationContext';
 import { connectSocket } from './src/services/socket';
 import type { RootStackParamList, LiveSessionsStackParamList } from './src/types';
@@ -25,7 +32,46 @@ const navigationRef = createNavigationContainerRef<RootStackParamList>();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const LiveStack = createNativeStackNavigator<LiveSessionsStackParamList>();
 const LeaderStack = createNativeStackNavigator();
+const HomeStack = createNativeStackNavigator();
+const ShortsStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+// ─── Shorts Stack (hub + list/upload/creators) ───────────────────────────────
+const ShortsStackNav: React.FC = () => (
+  <ShortsStack.Navigator screenOptions={{ headerShown: false }}>
+    <ShortsStack.Screen name="ShortsHome">
+      {(props) => <ShortsScreen navigation={props.navigation} />}
+    </ShortsStack.Screen>
+    <ShortsStack.Screen
+      name="TrainerShorts"
+      initialParams={{ kind: 'trainer' }}
+      component={ShortsListScreen as React.ComponentType<object>}
+    />
+    <ShortsStack.Screen
+      name="StudentShorts"
+      initialParams={{ kind: 'student' }}
+      component={ShortsListScreen as React.ComponentType<object>}
+    />
+    <ShortsStack.Screen name="TopCreators" component={TopCreatorsScreen as React.ComponentType<object>} />
+    <ShortsStack.Screen name="UploadShort" component={UploadShortScreen as React.ComponentType<object>} />
+    <ShortsStack.Screen name="MyUploads" component={MyUploadsScreen as React.ComponentType<object>} />
+    <ShortsStack.Screen name="ShortsFeed" component={ShortsFeedScreen as React.ComponentType<object>} />
+  </ShortsStack.Navigator>
+);
+
+// ─── Home Stack (links to deep screens from the home dashboard) ──────────────
+const HomeStackNav: React.FC = () => (
+  <HomeStack.Navigator screenOptions={{ headerShown: false }}>
+    <HomeStack.Screen name="HomeMain" component={HomeScreen as React.ComponentType<object>} />
+    <HomeStack.Screen name="LiveSessions">
+      {(props) => <LiveSessionScreen navigation={props.navigation} />}
+    </HomeStack.Screen>
+    <HomeStack.Screen name="LiveSession" component={LiveSessionScreen as React.ComponentType<object>} />
+    <HomeStack.Screen name="Notifications" component={NotificationsScreen as React.ComponentType<object>} />
+    <HomeStack.Screen name="Leaderboard" component={LeaderboardScreen as React.ComponentType<object>} />
+    <HomeStack.Screen name="Challenges" component={ChallengesScreen as React.ComponentType<object>} />
+  </HomeStack.Navigator>
+);
 
 const LeaderboardStack: React.FC = () => (
   <LeaderStack.Navigator screenOptions={{ headerShown: false }}>
@@ -113,20 +159,19 @@ const TabNavigator: React.FC = () => (
   >
     <Tab.Screen
       name="Home"
+      component={HomeStackNav}
       options={{
         tabBarIcon: ({ focused }: { focused: boolean }) => (
           <TabIcon iconActive="home" iconInactive="home-outline" label="Home" focused={focused} />
         ),
       }}
-    >
-      {() => <PlaceholderScreen title="Home" iconName="home-outline" />}
-    </Tab.Screen>
+    />
 
     <Tab.Screen
-      name="ClassSchedule"
+      name="MyLearning"
       options={{
         tabBarIcon: ({ focused }: { focused: boolean }) => (
-          <TabIcon iconActive="calendar" iconInactive="calendar-outline" label="Schedule" focused={focused} />
+          <TabIcon iconActive="book" iconInactive="book-outline" label="My Learning" focused={focused} />
         ),
       }}
     >
@@ -134,24 +179,36 @@ const TabNavigator: React.FC = () => (
     </Tab.Screen>
 
     <Tab.Screen
-      name="LiveSessions"
-      component={LiveSessionsStack}
+      name="Shorts"
+      component={ShortsStackNav}
       options={{
         tabBarIcon: ({ focused }: { focused: boolean }) => (
-          <TabIcon iconActive="videocam" iconInactive="videocam-outline" label="Live Sessions" focused={focused} />
+          <TabIcon iconActive="videocam" iconInactive="videocam-outline" label="Shorts" focused={focused} />
         ),
       }}
     />
 
     <Tab.Screen
-      name="Achievements"
-      component={LeaderboardStack}
+      name="Community"
       options={{
         tabBarIcon: ({ focused }: { focused: boolean }) => (
-          <TabIcon iconActive="trophy" iconInactive="trophy-outline" label="Leaderboard" focused={focused} />
+          <TabIcon iconActive="people" iconInactive="people-outline" label="Community" focused={focused} />
         ),
       }}
-    />
+    >
+      {() => <PlaceholderScreen title="Community" iconName="people-outline" />}
+    </Tab.Screen>
+
+    <Tab.Screen
+      name="Profile"
+      options={{
+        tabBarIcon: ({ focused }: { focused: boolean }) => (
+          <TabIcon iconActive="person" iconInactive="person-outline" label="Profile" focused={focused} />
+        ),
+      }}
+    >
+      {() => <PlaceholderScreen title="Profile" iconName="person-outline" />}
+    </Tab.Screen>
   </Tab.Navigator>
 );
 

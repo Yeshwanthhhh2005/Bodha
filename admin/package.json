@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build"
+    "dev": "vite --port 5101 --host",
+    "build": "vite build",
+    "preview": "vite preview --port 5101 --host"
   },
   "dependencies": {
     "axios": "^1.7.2",

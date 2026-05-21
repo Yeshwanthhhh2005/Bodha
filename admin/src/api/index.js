@@ -99,4 +99,31 @@ export const courseConfigAPI = {
   update: (data) => api.put('/course-config/admin', data),
 };
 
+export const shortsAPI = {
+  list:    (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return api.get(`/shorts/admin${q ? `?${q}` : ''}`);
+  },
+  pending: () => api.get('/shorts/admin/pending'),
+  create:  (data) => {
+    // Accepts either plain JSON or a payload with a `file` (File object)
+    if (data && data.file instanceof File) {
+      const form = new FormData();
+      form.append('video', data.file);
+      Object.entries(data).forEach(([k, v]) => {
+        if (k === 'file' || v == null) return;
+        form.append(k, String(v));
+      });
+      return api.post('/shorts/admin', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    }
+    return api.post('/shorts/admin', data);
+  },
+  update:  (id, data) => api.put(`/shorts/admin/${id}`, data),
+  approve: (id)       => api.patch(`/shorts/admin/${id}/approve`),
+  reject:  (id, reason = '') => api.patch(`/shorts/admin/${id}/reject`, { reason }),
+  delete:  (id)       => api.delete(`/shorts/admin/${id}`),
+};
+
 export default api;
